@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchCurrentUser } from '../api/auth'
 import { ApiRequestError } from '../api/client'
+import { exportWorkflowArtifactsArchive } from '../api/workflowArtifacts'
 import {
   createConversation,
   fetchConversationMessages,
@@ -38,6 +39,7 @@ import {
   useWorkflowStore,
 } from '../stores/workflowStore'
 import type { ChatMessage, Conversation, MessageRecord } from '../types/chat'
+import { downloadBlobFile } from '../utils/export'
 
 function toChatMessage(message: MessageRecord): ChatMessage {
   return {
@@ -72,6 +74,8 @@ export function Chat() {
   const navigate = useNavigate()
   const bootstrappedRef = useRef(false)
   const workflowRefreshTimersRef = useRef<Record<string, number>>({})
+  const [artifactExportError, setArtifactExportError] = useState<string | null>(null)
+  const [isExportingArtifacts, setIsExportingArtifacts] = useState(false)
   const [selectedArtifactPath, setSelectedArtifactPath] = useState<string | null>(null)
   const clearSession = useAuthStore((state) => state.clearSession)
   const setUser = useAuthStore((state) => state.setUser)
@@ -205,6 +209,7 @@ export function Chat() {
 
   const loadMessages = useCallback(async (nextConversationId: number, authToken: string) => {
     try {
+      setArtifactExportError(null)
       const records = await fetchConversationMessages(authToken, nextConversationId)
       setMessages(records.map(toChatMessage))
       setActiveConversationId(nextConversationId)
@@ -217,7 +222,7 @@ export function Chat() {
       }
       setError(message)
     }
-  }, [handleUnauthorized, setActiveConversationId, setError, setMessages])
+  }, [handleUnauthorized, setActiveConversationId, setArtifactExportError, setError, setMessages])
 
   const refreshConversationRuntimeState = useCallback(
     async (conversationId: number, authToken: string) => {
@@ -656,6 +661,7 @@ export function Chat() {
 
     setWorkflowGeneratingConversationId(activeConversationId)
     setWorkflowError(null)
+    setArtifactExportError(null)
 
     try {
       const preview = await createWorkflowPreview(token, activeConversationId, {
@@ -688,6 +694,7 @@ export function Chat() {
 
     setWorkflowConfirmingWorkflowId(activeWorkflowPreview.workflow_id)
     setWorkflowError(null)
+    setArtifactExportError(null)
 
     try {
       const confirmedWorkflow = await confirmWorkflowPreview(
@@ -721,6 +728,7 @@ export function Chat() {
 
     setWorkflowExecutingWorkflowId(activeWorkflowPreview.workflow_id)
     setWorkflowError(null)
+    setArtifactExportError(null)
 
     try {
       clearWorkflowRuntimeLogs(activeWorkflowPreview.workflow_id)
@@ -758,6 +766,7 @@ export function Chat() {
 
     setWorkflowControllingWorkflowId(activeWorkflowPreview.workflow_id)
     setWorkflowError(null)
+    setArtifactExportError(null)
 
     try {
       const redirectInstruction =
@@ -788,6 +797,42 @@ export function Chat() {
       setWorkflowError(resolveChatError(error))
     } finally {
       setWorkflowControllingWorkflowId(null)
+    }
+  }
+
+  const handleExportArtifacts = async () => {
+    if (!token) {
+      handleUnauthorized()
+      return
+    }
+
+    if (activeConversationId === null || activeWorkflowPreview === null) {
+      setArtifactExportError('当前还没有可导出的工作流产物')
+      return
+    }
+
+    setIsExportingArtifacts(true)
+    setArtifactExportError(null)
+
+    try {
+      const archiveBlob = await exportWorkflowArtifactsArchive(
+        token,
+        activeConversationId,
+        activeWorkflowPreview.workflow_id,
+      )
+      downloadBlobFile(
+        archiveBlob,
+        `workflow_${activeWorkflowPreview.workflow_id}_artifacts.zip`,
+      )
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setArtifactExportError(resolveChatError(error))
+    } finally {
+      setIsExportingArtifacts(false)
     }
   }
 
@@ -876,6 +921,8 @@ export function Chat() {
               <ArtifactPreviewPanel
                 artifactListError={artifactListError}
                 artifacts={workflowArtifacts}
+                exportError={artifactExportError}
+                isExporting={isExportingArtifacts}
                 isLoadingArtifacts={isLoadingArtifacts}
                 isLoadingPreview={isLoadingPreview}
                 previewError={previewError}
@@ -883,6 +930,9 @@ export function Chat() {
                 previewText={previewText}
                 selectedArtifact={selectedArtifact}
                 workflow={activeWorkflowPreview}
+                onExportArtifacts={() => {
+                  void handleExportArtifacts()
+                }}
                 onSelectArtifact={setSelectedArtifactPath}
               />
               <LogViewer logs={workflowRuntimeLogs} />

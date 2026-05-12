@@ -46,13 +46,13 @@
 11. 设计师模板命中 `image_tool` 时，会在共享工作区真实生成设计概念图和图像结果元数据
 12. 新增受保护工作流产物接口，可按工作流读取产物列表与单个文件内容
 13. 聊天页新增产物预览面板，支持代码、文档、图片三类真实产物预览
+14. 新增工作流产物导出压缩包接口，支持一键下载当前工作流全部真实产物
 
 当前下一步目标：
 
-1. 补齐产出物导出链路
+1. 补齐工作流 Token 用量展示
 2. 继续增强工具执行上下文、权限边界与验收展示
-3. 补齐工作流 Token 用量展示
-4. 在具备有效图像模型 Key 的环境下补充真实 AI 出图回归
+3. 在具备有效图像模型 Key 的环境下补充真实 AI 出图回归
 
 ## 技术栈
 
@@ -134,6 +134,7 @@ docs/       接口、流程、部署、前端规格文档
 - `artifacts/frontend_browser_result.json` / `artifacts/qa_browser_result.json`：浏览器工具记录的访问结果元数据
 - `artifacts/design_mockup.png`：图像工具生成的设计概念图或本地占位图
 - `artifacts/design_image_result.json`：图像工具记录的生成来源、提示词和输出参数
+- `exports/workflow_<id>_artifacts.zip`：导出工具生成的工作流产物压缩包
 - `context/workspace_state.json`：当前工作区状态快照
 - `context/handoff_log.json`：节点间交接记录
 - `workflow_runs`：工作流运行快照、控制信号与断点状态表

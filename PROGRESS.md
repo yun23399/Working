@@ -112,7 +112,7 @@
 - [x] 代码预览组件（CodePreview.tsx）
 - [x] 图片预览组件（ImagePreview.tsx）
 - [x] 文档预览组件（DocumentPreview.tsx）
-- [ ] 产出物导出功能（file_export.py）
+- [x] 产出物导出功能（file_export.py）
 - [ ] Token 用量展示（TokenCounter.tsx）
 
 ---
@@ -161,6 +161,7 @@
 - ✅ 阶段三浏览器自动化工具链路 — 2026-05-13 | 工作流已支持受限页面访问、截图落盘与 `browser_result.json` / `snapshot.png` 产物回传
 - ✅ 阶段三图像生成工具链路 — 2026-05-13 | 工作流已支持真实设计图落盘与 `design_image_result.json` 元数据回传，缺少 Key 时可回退本地占位图链路
 - ✅ 阶段三前端产物预览链路 — 2026-05-13 | 聊天页已支持按工作流读取真实产物列表，并预览代码、文档和图片产物
+- ✅ 阶段三产物导出链路 — 2026-05-13 | 后端已支持导出当前工作流真实产物 zip，聊天页可一键下载全部产物
 
 ---
 
@@ -617,6 +618,26 @@
   4. 接口实测通过：`GET /api/workflows/50/48/artifacts/file?path=design_mockup.png` 返回 `200`，`content-type=image/png`
   5. 接口实测通过：`GET /api/workflows/50/48/artifacts/file?path=design_brief.md` 返回 `200`，`content-type=text/markdown`
   6. 越权/不存在会话实测通过：`GET /api/workflows/999999/48/artifacts` 返回 `404`，错误码 `CONVERSATION_NOT_FOUND`
+
+### 2026-05-13 会话 #26
+- 执行内容：完成阶段三工作流产物导出链路
+- 新增后端文件：
+  1. `backend/app/tools/file_export.py`
+  2. `backend/app/services/workflow_export_service.py`
+- 新增前端文件：
+  1. `frontend/src/utils/export.ts`
+- 关键改造：
+  1. `backend/app/api/workflows.py` 新增受保护导出接口 `/api/workflows/{conversation_id}/{workflow_id}/artifacts/export`
+  2. `file_export.py` 支持将当前工作流 `artifacts/` 目录内真实文件打包到 `exports/workflow_<id>_artifacts.zip`
+  3. `ArtifactPreviewPanel.tsx` 新增“导出产物”按钮与导出中/失败提示
+  4. `frontend/src/api/workflowArtifacts.ts` 新增导出压缩包 API 封装，聊天页接入真实下载动作
+  5. README、API、产品流程、测试文档与 CHANGELOG 已同步到当前导出实现
+- 验证结果：
+  1. `frontend`: `npm run lint`、`npm run build` 通过
+  2. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  3. 接口实测通过：`GET /api/workflows/51/49/artifacts/export` 返回 `200`
+  4. 接口实测通过：响应头包含 `attachment; filename=\"workflow_49_artifacts.zip\"`
+  5. 接口实测通过：压缩包内文件列表为 `plan.json`、`summary.md`
 
 ---
 

@@ -32,6 +32,7 @@
 - `workspace.artifacts` 与节点 `execution_logs[].artifacts` 已支持返回真实产物路径
 - 新增受保护工作流产物接口 `/api/workflows/{conversation_id}/{workflow_id}/artifacts`
 - 新增受保护工作流产物文件接口 `/api/workflows/{conversation_id}/{workflow_id}/artifacts/file`
+- 新增工作流产物导出接口 `/api/workflows/{conversation_id}/{workflow_id}/artifacts/export`
 - 修复 Windows 下代码执行工具在 `uvicorn --reload` 环境中的子进程兼容问题
 - 修复 Windows 下浏览器工具在 `uvicorn --reload` 环境中的 Playwright 子进程兼容问题
 - 新增图像工具在缺少 `OPENAI_API_KEY` 时的本地占位图回退链路，保证阶段三回归可执行
@@ -43,6 +44,7 @@
 - 新增工作流产物预览面板 `ArtifactPreviewPanel`
 - 新增 `CodePreview`、`ImagePreview`、`DocumentPreview` 三类真实产物预览组件
 - 聊天页可直接读取并预览当前工作流的代码、文档与图片产物
+- 聊天页产物面板新增“导出产物”按钮，可一键下载当前工作流全部真实产物压缩包
 - `workflowStore` 新增按工作流缓存运行时日志的状态管理
 - `useWebSocket` 新增日志事件回调扩展点，支持页面侧按场景消费 `log` 事件
 - 工作流重新执行前会清空当前运行日志，避免旧日志残留

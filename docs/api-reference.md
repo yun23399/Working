@@ -416,6 +416,31 @@ path=design_brief.md
 - `INVALID_WORKFLOW_ARTIFACT_PATH`
 - `GET_WORKFLOW_ARTIFACT_FAILED`
 
+### GET /api/workflows/{conversation_id}/{workflow_id}/artifacts/export
+
+用途：导出指定工作流当前全部真实产物，返回 zip 压缩包下载流。
+
+成功响应：
+
+- `application/zip` 二进制流
+
+说明：
+
+- 当前接口仅导出当前工作流 `artifacts/` 目录内的真实文件
+- 压缩包会临时生成在当前工作流的 `exports/` 目录下
+- 压缩包文件名格式为 `workflow_<workflow_id>_artifacts.zip`
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `WORKFLOW_NOT_FOUND`
+- `EMPTY_WORKFLOW_ARTIFACTS`
+- `INVALID_WORKFLOW_EXPORT_PATH`
+- `EXPORT_WORKFLOW_ARTIFACTS_FAILED`
+
 ### POST /api/workflows/{conversation_id}/preview
 
 用途：为指定对话生成工作流预览，或在 `force_replan=true` 时重新规划。

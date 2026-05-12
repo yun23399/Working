@@ -30,6 +30,11 @@ from app.services.workflow_artifact_service import (
     list_workflow_artifacts,
     resolve_workflow_artifact_path,
 )
+from app.services.workflow_export_service import (
+    EmptyArtifactExportError,
+    InvalidArtifactExportPathError,
+    export_workflow_artifacts_archive,
+)
 from app.services.workflow_service import (
     WorkflowNotFoundError,
     confirm_workflow_preview,
@@ -212,6 +217,71 @@ def get_workflow_artifact_file_endpoint(
             detail={
                 "error": "读取工作流产物失败",
                 "code": "GET_WORKFLOW_ARTIFACT_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+
+
+@router.get("/{conversation_id}/{workflow_id}/artifacts/export")
+def export_workflow_artifacts_endpoint(
+    conversation_id: int,
+    workflow_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> FileResponse:
+    """导出指定工作流当前全部真实产物，并返回 zip 压缩包"""
+
+    try:
+        conversation = get_conversation_by_owner(db, conversation_id, current_user)
+        workflow = get_workflow_by_id(db, workflow_id, conversation.id)
+        archive_path, archive_name = export_workflow_artifacts_archive(workflow)
+        return FileResponse(
+            path=archive_path,
+            media_type="application/zip",
+            filename=archive_name,
+        )
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "工作流预览不存在",
+                "code": "WORKFLOW_NOT_FOUND",
+                "detail": f"工作流 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except EmptyArtifactExportError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "当前工作流没有可导出的产物",
+                "code": "EMPTY_WORKFLOW_ARTIFACTS",
+                "detail": str(exc),
+            },
+        ) from exc
+    except InvalidArtifactExportPathError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "工作流产物导出路径不合法",
+                "code": "INVALID_WORKFLOW_EXPORT_PATH",
+                "detail": str(exc),
+            },
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "导出工作流产物失败",
+                "code": "EXPORT_WORKFLOW_ARTIFACTS_FAILED",
                 "detail": str(exc),
             },
         ) from exc

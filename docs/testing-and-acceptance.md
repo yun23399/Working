@@ -274,6 +274,19 @@ python -m playwright install chromium
 - 2026-05-13 接口实测通过：不存在或无权限的会话访问会返回 `404`，错误码 `CONVERSATION_NOT_FOUND`
 - 聊天页新增产物预览面板，当前可按真实文件类型切换代码、文档与图片预览
 
+### 用例 20：阶段三工作流产物导出链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- 2026-05-13 接口实测通过：`GET /api/workflows/51/49/artifacts/export` 返回 `200`
+- 2026-05-13 接口实测通过：响应头 `content-disposition=attachment; filename=\"workflow_49_artifacts.zip\"`
+- 2026-05-13 接口实测通过：压缩包内文件列表为 `plan.json`、`summary.md`
+- 聊天页产物面板新增“导出产物”按钮，可直接下载当前工作流全部真实产物
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰

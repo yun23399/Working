@@ -12,6 +12,8 @@ import {
 interface ArtifactPreviewPanelProps {
   artifactListError: string | null
   artifacts: WorkflowArtifact[]
+  exportError: string | null
+  isExporting: boolean
   isLoadingArtifacts: boolean
   isLoadingPreview: boolean
   previewError: string | null
@@ -19,6 +21,7 @@ interface ArtifactPreviewPanelProps {
   previewText: string | null
   selectedArtifact: WorkflowArtifact | null
   workflow: WorkflowPreview | null
+  onExportArtifacts: () => void
   onSelectArtifact: (relativePath: string) => void
 }
 
@@ -43,6 +46,8 @@ function resolveArtifactIcon(previewType: WorkflowArtifact['preview_type']) {
 export function ArtifactPreviewPanel({
   artifactListError,
   artifacts,
+  exportError,
+  isExporting,
   isLoadingArtifacts,
   isLoadingPreview,
   previewError,
@@ -50,9 +55,11 @@ export function ArtifactPreviewPanel({
   previewText,
   selectedArtifact,
   workflow,
+  onExportArtifacts,
   onSelectArtifact,
 }: ArtifactPreviewPanelProps) {
   const hasWorkflow = workflow !== null
+  const canExport = hasWorkflow && artifacts.length > 0 && !isExporting
 
   return (
     <section className="rounded-[20px] border border-line bg-white/85 px-5 py-5">
@@ -63,8 +70,18 @@ export function ArtifactPreviewPanel({
             基于当前工作流的真实 `artifacts/` 目录展示代码、文档和图片产物。
           </div>
         </div>
-        <div className="rounded-full bg-[#f3efe6] px-3 py-1 text-xs text-ink-soft">
-          {artifacts.length} 项
+        <div className="flex items-center gap-2">
+          <div className="rounded-full bg-[#f3efe6] px-3 py-1 text-xs text-ink-soft">
+            {artifacts.length} 项
+          </div>
+          <button
+            type="button"
+            onClick={onExportArtifacts}
+            disabled={!canExport}
+            className="rounded-full border border-line bg-white px-4 py-2 text-xs font-medium text-ink transition hover:bg-[#f8f5ee] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isExporting ? '正在导出...' : '导出产物'}
+          </button>
         </div>
       </div>
 
@@ -77,6 +94,12 @@ export function ArtifactPreviewPanel({
       {hasWorkflow && artifactListError ? (
         <div className="mt-4 rounded-[18px] border border-[#e3c2bf] bg-[#fff5f4] px-4 py-3 text-sm text-[#9b4b46]">
           {artifactListError}
+        </div>
+      ) : null}
+
+      {hasWorkflow && exportError ? (
+        <div className="mt-4 rounded-[18px] border border-[#e3c2bf] bg-[#fff5f4] px-4 py-3 text-sm text-[#9b4b46]">
+          {exportError}
         </div>
       ) : null}
 

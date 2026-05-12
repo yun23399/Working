@@ -47,3 +47,14 @@ export async function fetchWorkflowArtifactBlob(
     token,
   })
 }
+
+// 导出指定工作流的全部真实产物，返回压缩包二进制内容
+export async function exportWorkflowArtifactsArchive(
+  token: string,
+  conversationId: number,
+  workflowId: number,
+): Promise<Blob> {
+  return requestBlob(`/api/workflows/${conversationId}/${workflowId}/artifacts/export`, {
+    token,
+  })
+}
