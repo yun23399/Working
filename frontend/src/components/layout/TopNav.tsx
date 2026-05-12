@@ -1,9 +1,13 @@
-import { Bell, LogOut, Search, Settings } from 'lucide-react'
+import { FolderKanban, LogOut, Settings } from 'lucide-react'
 import type { SocketStatus } from '../../types/chat'
 
 interface TopNavProps {
+  conversationTitle: string | null
+  projectName: string
   username: string | null
   socketStatus: SocketStatus
+  onOpenProjects: () => void
+  onOpenSettings: () => void
   onLogout: () => void
 }
 
@@ -23,11 +27,24 @@ function resolveStatusText(socketStatus: SocketStatus): string {
 }
 
 // 顶部导航组件，展示项目标题、连接状态和退出入口
-export function TopNav({ username, socketStatus, onLogout }: TopNavProps) {
+export function TopNav({
+  conversationTitle,
+  projectName,
+  username,
+  socketStatus,
+  onOpenProjects,
+  onOpenSettings,
+  onLogout,
+}: TopNavProps) {
   return (
-    <header className="col-span-2 flex items-center justify-between border-b border-line px-6">
-      <div className="text-lg font-semibold text-ink">
-        AgentFlow <span className="font-normal text-ink-faint">/ 电商网站项目</span>
+    <header className="col-span-2 flex items-center justify-between border-b border-line bg-[#fbfaf6] px-6 py-3">
+      <div>
+        <div className="text-lg font-semibold text-ink">
+          AgentFlow <span className="font-normal text-ink-faint">/ {projectName}</span>
+        </div>
+        <div className="mt-1 text-xs text-ink-faint">
+          当前会话：{conversationTitle ?? '尚未创建对话'}
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <div
@@ -43,18 +60,15 @@ export function TopNav({ username, socketStatus, onLogout }: TopNavProps) {
         </div>
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-surface-panel text-ink transition hover:bg-surface-muted"
+          onClick={onOpenProjects}
+          className="flex items-center gap-2 rounded-2xl border border-line bg-surface-panel px-4 py-2 text-sm text-ink transition hover:bg-surface-muted"
         >
-          <Search className="h-4 w-4" />
+          <FolderKanban className="h-4 w-4" />
+          项目页
         </button>
         <button
           type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-surface-panel text-ink transition hover:bg-surface-muted"
-        >
-          <Bell className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
+          onClick={onOpenSettings}
           className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-surface-panel text-ink transition hover:bg-surface-muted"
         >
           <Settings className="h-4 w-4" />

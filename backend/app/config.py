@@ -1,8 +1,11 @@
 """应用配置定义，统一从环境变量读取参数"""
 
+from pathlib import Path
 from secrets import token_urlsafe
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
@@ -33,7 +36,7 @@ class Settings(BaseSettings):
     code_exec_timeout: int = 30
     sandbox_enabled: bool = False
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ROOT_ENV_FILE, extra="ignore")
 
     @property
     def cors_allow_origins_list(self) -> list[str]:

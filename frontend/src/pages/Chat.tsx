@@ -15,6 +15,12 @@ import { TopNav } from '../components/layout/TopNav'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
+import {
+  filterConversationsForProject,
+  findProjectByConversationId,
+  getProjectById,
+  useProjectStore,
+} from '../stores/projectStore'
 import type { ChatMessage, Conversation, MessageRecord } from '../types/chat'
 
 function toChatMessage(message: MessageRecord): ChatMessage {
@@ -53,6 +59,13 @@ export function Chat() {
   const setUser = useAuthStore((state) => state.setUser)
   const token = useAuthStore((state) => state.token)
   const user = useAuthStore((state) => state.user)
+  const activeProjectId = useProjectStore((state) => state.activeProjectId)
+  const attachConversationToActiveProject = useProjectStore(
+    (state) => state.attachConversationToActiveProject,
+  )
+  const projects = useProjectStore((state) => state.projects)
+  const setActiveProjectId = useProjectStore((state) => state.setActiveProjectId)
+  const syncProjectConversations = useProjectStore((state) => state.syncConversations)
 
   const activeConversationId = useChatStore((state) => state.activeConversationId)
   const activityLogs = useChatStore((state) => state.activityLogs)
@@ -80,6 +93,14 @@ export function Chat() {
   const removeMessage = useChatStore((state) => state.removeMessage)
   const touchConversation = useChatStore((state) => state.touchConversation)
   const socketStatus = useChatStore((state) => state.socketStatus)
+  const activeProject = getProjectById(projects, activeProjectId)
+  const activeConversation =
+    conversations.find((conversation) => conversation.id === activeConversationId) ?? null
+  const visibleConversations = filterConversationsForProject(
+    projects,
+    activeProjectId,
+    conversations,
+  )
 
   useWebSocket(activeConversationId, token)
 
@@ -111,31 +132,57 @@ export function Chat() {
     }
   }, [handleUnauthorized, setActiveConversationId, setError, setMessages])
 
+  const createConversationForCurrentProject = useCallback(async (authToken: string) => {
+    try {
+      setCreatingConversation(true)
+      const conversation = await createConversation(authToken, {
+        title: buildConversationTitle(),
+      })
+      prependConversation(conversation)
+      attachConversationToActiveProject(conversation.id)
+      syncProjectConversations([...conversations, conversation])
+      setError(null)
+      return conversation
+    } catch (error) {
+      const message = resolveChatError(error)
+      if (error instanceof ApiRequestError && error.status === 401) {
+        handleUnauthorized()
+        return null
+      }
+      setError(message)
+      return null
+    } finally {
+      setCreatingConversation(false)
+    }
+  }, [
+    attachConversationToActiveProject,
+    conversations,
+    handleUnauthorized,
+    prependConversation,
+    setCreatingConversation,
+    setError,
+    syncProjectConversations,
+  ])
+
   const handleCreateConversation = async () => {
     if (!token) {
       handleUnauthorized()
       return
     }
 
-    setCreatingConversation(true)
     try {
-      const conversation = await createConversation(token, {
-        title: buildConversationTitle(),
-      })
-      prependConversation(conversation)
+      const conversation = await createConversationForCurrentProject(token)
+      if (!conversation) {
+        return
+      }
+
       setActiveConversationId(conversation.id)
       resetMessages()
       setDraft('')
       setError(null)
     } catch (error) {
       const message = resolveChatError(error)
-      if (error instanceof ApiRequestError && error.status === 401) {
-        handleUnauthorized()
-        return
-      }
       setError(message)
-    } finally {
-      setCreatingConversation(false)
     }
   }
 
@@ -156,16 +203,41 @@ export function Chat() {
 
         const items = await fetchConversations(token)
         setConversations(items)
+        syncProjectConversations(items)
 
         if (items.length === 0) {
-          const firstConversation = await createConversation(token, {
-            title: buildConversationTitle(),
-          })
-          prependConversation(firstConversation)
+          const firstConversation = await createConversationForCurrentProject(token)
+          if (!firstConversation) {
+            return
+          }
+
           setActiveConversationId(firstConversation.id)
           resetMessages()
         } else {
-          await loadMessages(items[0].id, token)
+          const projectState = useProjectStore.getState()
+          const projectConversations = filterConversationsForProject(
+            projectState.projects,
+            projectState.activeProjectId,
+            items,
+          )
+          const nextConversation = projectConversations[0] ?? null
+          if (!nextConversation) {
+            setActiveConversationId(null)
+            resetMessages()
+            setError(null)
+            return
+          }
+
+          const ownerProject = findProjectByConversationId(
+            projectState.projects,
+            nextConversation.id,
+          )
+
+          if (ownerProject && ownerProject.id !== projectState.activeProjectId) {
+            setActiveProjectId(ownerProject.id)
+          }
+
+          await loadMessages(nextConversation.id, token)
         }
       } catch (error) {
         if (error instanceof ApiRequestError && error.status === 401) {
@@ -180,17 +252,19 @@ export function Chat() {
 
     void bootstrapChat()
   }, [
+    createConversationForCurrentProject,
     handleUnauthorized,
     loadMessages,
-    prependConversation,
     resetMessages,
     setActiveConversationId,
     setBootstrapping,
     setConversations,
     setError,
+    setActiveProjectId,
     setUser,
-    token,
+    syncProjectConversations,
     user,
+    token,
   ])
 
   const handleSelectConversation = async (conversation: Conversation) => {
@@ -199,9 +273,50 @@ export function Chat() {
       return
     }
 
-    setBootstrapping(true)
-    await loadMessages(conversation.id, token)
-    setBootstrapping(false)
+    try {
+      setBootstrapping(true)
+      const ownerProject = findProjectByConversationId(projects, conversation.id)
+      if (ownerProject && ownerProject.id !== activeProjectId) {
+        setActiveProjectId(ownerProject.id)
+      }
+
+      await loadMessages(conversation.id, token)
+    } catch (error) {
+      setError(resolveChatError(error))
+    } finally {
+      setBootstrapping(false)
+    }
+  }
+
+  const handleSelectProject = async (projectId: string) => {
+    if (!token) {
+      handleUnauthorized()
+      return
+    }
+
+    try {
+      setBootstrapping(true)
+      setActiveProjectId(projectId)
+      const nextProjectState = useProjectStore.getState()
+      const nextVisibleConversations = filterConversationsForProject(
+        nextProjectState.projects,
+        projectId,
+        conversations,
+      )
+
+      if (nextVisibleConversations.length === 0) {
+        setActiveConversationId(null)
+        resetMessages()
+        setError(null)
+        return
+      }
+
+      await loadMessages(nextVisibleConversations[0].id, token)
+    } catch (error) {
+      setError(resolveChatError(error))
+    } finally {
+      setBootstrapping(false)
+    }
   }
 
   const handleSendMessage = async () => {
@@ -211,7 +326,18 @@ export function Chat() {
     }
 
     if (activeConversationId === null) {
-      await handleCreateConversation()
+      try {
+        const conversation = await createConversationForCurrentProject(token)
+        if (!conversation) {
+          return
+        }
+
+        setActiveConversationId(conversation.id)
+        resetMessages()
+        setError('已为当前项目创建首条对话，请等待实时连接建立后再发送消息')
+      } catch (error) {
+        setError(resolveChatError(error))
+      }
       return
     }
 
@@ -255,18 +381,44 @@ export function Chat() {
     navigate('/login', { replace: true })
   }
 
+  const handleOpenProjects = () => {
+    navigate('/projects')
+  }
+
+  const handleOpenSettings = () => {
+    navigate('/settings')
+  }
+
   return (
     <main className="min-h-screen p-6">
       <section className="mx-auto grid min-h-[720px] max-w-7xl grid-cols-[300px_1fr] grid-rows-[56px_1fr] overflow-hidden rounded-[28px] border border-line bg-surface-panel shadow-panel">
-        <TopNav username={user?.username ?? null} socketStatus={socketStatus} onLogout={handleLogout} />
+        <TopNav
+          conversationTitle={activeConversation?.title ?? null}
+          projectName={activeProject?.name ?? '未命名项目'}
+          username={user?.username ?? null}
+          socketStatus={socketStatus}
+          onLogout={handleLogout}
+          onOpenProjects={handleOpenProjects}
+          onOpenSettings={handleOpenSettings}
+        />
         <Sidebar
-          conversations={conversations}
+          activeProjectId={activeProjectId}
+          conversations={visibleConversations}
           activeConversationId={activeConversationId}
           isCreatingConversation={isCreatingConversation}
+          projects={projects}
           onCreateConversation={handleCreateConversation}
+          onSelectProject={handleSelectProject}
           onSelectConversation={handleSelectConversation}
         />
-        <MainArea>
+        <MainArea
+          activeConversationTitle={activeConversation?.title ?? null}
+          conversationCount={visibleConversations.length}
+          projectName={activeProject?.name ?? '未命名项目'}
+          projectSummary={
+            activeProject?.summary ?? '当前还没有项目摘要，后续阶段会接入真实项目实体。'
+          }
+        >
           <ChatWindow
             draft={draft}
             errorMessage={errorMessage}

@@ -9,9 +9,9 @@
 - `/login`
   - 登录与注册页面
 - `/chat`
-  - 最小聊天闭环页面
+  - 最小聊天闭环页面，含项目分组与历史视图
 - `/projects`
-  - 项目页骨架
+  - 最小项目分组页
 - `/settings`
   - 设置页骨架
 
@@ -54,14 +54,16 @@
 - `conversations.ts`
 - `authStore.ts`
 - `chatStore.ts`
+- `projectStore.ts`
 - `useWebSocket.ts`
 
 ### 项目页 `frontend/src/pages/Projects.tsx`
 
 当前状态：
 
-- 骨架页面
-- 后续用于项目列表、搜索、切换和新建项目
+- 最小项目列表已接入
+- 当前支持项目卡片展示、切换并返回聊天页
+- 后续用于项目搜索、筛选和新建项目
 
 ### 设置页 `frontend/src/pages/Settings.tsx`
 
@@ -101,7 +103,8 @@ frontend/src/
 │   └── projectStore.ts
 └── types/
     ├── auth.ts
-    └── chat.ts
+    ├── chat.ts
+    └── project.ts
 ```
 
 ## 4. 页面功能边界
@@ -121,7 +124,7 @@ frontend/src/
 
 ### `stores/`
 
-- 负责保存登录态、对话态、流式态
+- 负责保存登录态、对话态、流式态和最小项目态
 
 ### `hooks/`
 

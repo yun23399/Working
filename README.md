@@ -12,7 +12,8 @@
 4. 发送消息并通过 WebSocket 接收流式回复
 5. 持久化对话与消息历史
 6. 统一 LLM 适配层与 Manager Agent 普通对话
-7. 前后端真实联调验证
+7. 最小项目分组、历史视图与项目页切换
+8. 前后端真实联调验证
 
 当前下一步目标：
 
@@ -67,14 +68,13 @@ $env:LLM_MODEL='qwen2.5-coder:3b'
 ```powershell
 cd frontend
 npm install
-$env:VITE_API_BASE_URL='http://127.0.0.1:8000'
 npm run dev
 ```
 
 如果 `8000` 或 `5173` 已被占用，请切换端口，并同步调整：
 
 - 后端 `APP_PORT`
-- 前端 `VITE_API_BASE_URL`
+- 根目录 `.env` 中的 `VITE_API_BASE_URL`
 - 后端 `CORS_ALLOW_ORIGINS`
 
 ## 目录说明

@@ -34,9 +34,10 @@
 
 - 进入页面后自动恢复用户信息
 - 自动加载对话列表
-- 若没有对话则自动创建首条对话
+- 若当前项目没有对话则自动创建首条对话
 - 自动建立 WebSocket 连接
 - 支持发送消息和接收流式回复
+- 支持按最小项目分组切换历史对话
 - 支持退出登录
 
 状态定义：
@@ -55,7 +56,8 @@
 
 交互说明：
 
-- 新建对话按钮：创建新对话并切换
+- 项目切换：仅展示当前项目下的历史对话
+- 新建对话按钮：在当前项目下创建新对话并切换
 - 历史对话项：加载该对话的历史消息
 - 发送按钮：提交当前输入内容
 - WebSocket 断线：自动重连最多 3 次
@@ -64,14 +66,15 @@
 
 当前状态：
 
-- 占位骨架页面
+- 最小项目分组页面已可用
+- 支持查看预置项目卡片
+- 支持切换项目并返回聊天页
 
 后续职责：
 
-- 项目列表
-- 搜索和筛选
+- 项目搜索和筛选
 - 新建项目
-- 项目切换
+- 接入真实后端项目实体
 
 ### 1.4 设置页 `Settings.tsx`
 
@@ -93,16 +96,23 @@
 功能说明：
 
 - 展示项目标题
+- 展示当前会话标题
 - 展示连接状态
 - 展示当前用户名
+- 提供项目页入口
+- 提供设置页入口
 - 提供退出登录入口
 
 Props：
 
 ```ts
 interface TopNavProps {
+  conversationTitle: string | null
+  projectName: string
   username: string | null
   socketStatus: SocketStatus
+  onOpenProjects: () => void
+  onOpenSettings: () => void
   onLogout: () => void
 }
 ```
@@ -119,24 +129,49 @@ interface TopNavProps {
 
 功能说明：
 
-- 展示项目占位列表
+- 展示最小项目分组列表
 - 展示真实对话列表
 - 新建对话
+- 切换项目
 - 切换对话
 
 Props：
 
 ```ts
 interface SidebarProps {
+  activeProjectId: string
   conversations: Conversation[]
   activeConversationId: number | null
   isCreatingConversation: boolean
+  projects: ProjectSummary[]
   onCreateConversation: () => void
+  onSelectProject: (projectId: string) => void
   onSelectConversation: (conversation: Conversation) => void
 }
 ```
 
-### 2.3 `ChatWindow`
+### 2.3 `MainArea`
+
+功能说明：
+
+- 展示当前项目名称与摘要
+- 展示当前项目的历史对话数
+- 展示当前会话标题
+- 承载聊天窗口主区域
+
+Props：
+
+```ts
+interface MainAreaProps {
+  activeConversationTitle: string | null
+  children: ReactNode
+  conversationCount: number
+  projectName: string
+  projectSummary: string
+}
+```
+
+### 2.4 `ChatWindow`
 
 功能说明：
 
@@ -163,7 +198,7 @@ interface ChatWindowProps {
 }
 ```
 
-### 2.4 `MessageBubble`
+### 2.5 `MessageBubble`
 
 功能说明：
 
@@ -179,7 +214,7 @@ interface MessageBubbleProps {
 }
 ```
 
-### 2.5 `StreamingText`
+### 2.6 `StreamingText`
 
 功能说明：
 
@@ -223,7 +258,9 @@ interface StreamingTextProps {
 
 当前状态：
 
-- 仅保留最小项目名状态
+- 维护最小项目分组、当前项目 ID 和项目下的对话映射
+- 数据持久化到本地存储 `agentflow.project.state`
+- 未归属的对话会自动归入当前激活项目
 - 后续阶段会接入真实项目实体
 
 ## 4. Hook 规范
@@ -278,11 +315,12 @@ useWebSocket(conversationId: number | null, token: string | null)
 1. 注册
 2. 自动登录
 3. 进入聊天页
-4. 自动创建或加载对话
-5. 建立 WebSocket
-6. 发送消息
-7. 接收流式回复
-8. 刷新页面后恢复登录态
+4. 按项目查看历史对话
+5. 自动创建或加载当前项目下的对话
+6. 建立 WebSocket
+7. 发送消息
+8. 接收流式回复
+9. 刷新页面后恢复登录态和项目映射
 
 ## 7. 规划中的可复用组件
 
@@ -310,7 +348,7 @@ useWebSocket(conversationId: number | null, token: string | null)
 ## 8. 后续前端优先级建议
 
 1. 接入真实 LLM 流式输出后的消息状态适配
-2. 项目实体持久化与项目切换
+2. 项目实体持久化与后端项目接口
 3. 工作流确认卡片与执行状态面板
 4. 代码/图片/文档预览组件
 5. 暗色主题切换
