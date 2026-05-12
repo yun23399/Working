@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**⏳ 阶段二：工作流引擎（已完成最小工作流预览、执行刷新、预置角色模板、日志面板、共享工作区、断点控制与错误恢复链路）**
+**⏳ 阶段三：工具集接入（已完成 code_executor 最小真实链路，阶段二能力已全部打通）**
 
 ---
 
@@ -17,8 +17,8 @@
 | 阶段 | 状态 | 说明 |
 |------|------|------|
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
-| 阶段二：工作流引擎 | ⏳ 进行中 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新与角色模板链路 |
-| 阶段三：工具集接入 | ⏳ 待开始 | 依赖阶段二完成 |
+| 阶段二：工作流引擎 | ✅ 已完成 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新、模板、共享工作区、断点、错误恢复与项目级记忆链路 |
+| 阶段三：工具集接入 | ⏳ 进行中 | 已完成代码执行工具最小真实链路 |
 | 阶段四：完善体验 | ⏳ 待开始 | 依赖阶段三完成 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
 
@@ -102,9 +102,9 @@
 
 ---
 
-## 阶段三：任务清单（待开始）
+## 阶段三：任务清单（进行中）
 
-- [ ] 代码执行工具（code_executor.py）
+- [x] 代码执行工具（code_executor.py）
 - [ ] 文件读写工具（file_tool.py）
 - [ ] 外部 API 调用工具（api_caller.py）
 - [ ] Playwright 浏览器自动化工具（browser_tool.py）
@@ -155,6 +155,7 @@
 - ✅ 阶段二断点控制链路 — 2026-05-13 | 工作流已支持运行快照、等待确认、恢复执行与控制接口
 - ✅ 阶段二错误恢复链路 — 2026-05-13 | 工作流已支持节点重试、失败回滚、层级上报、恢复建议与人工改向重跑
 - ✅ 阶段二项目级记忆链路 — 2026-05-13 | 工作流已支持跨工作流沉淀长期目标、关键摘要与最近异常
+- ✅ 阶段三代码执行工具链路 — 2026-05-13 | 工作流已支持最小受限 `python` / `node` 执行、真实计划产物落盘与产物路径回传
 
 ---
 
@@ -500,6 +501,23 @@
   2. `frontend`: `npm run lint`、`npm run build` 通过
   3. API 实测通过：工作流预览响应返回 `project_memory`
   4. API 实测通过：执行完成后 `workspace/projects/conversation_<id>/project_memory.json` 已落盘并包含节点摘要
+
+### 2026-05-13 会话 #20
+- 执行内容：完成阶段三 `code_executor` 最小真实链路
+- 新增后端文件：
+  1. `backend/app/tools/base_tool.py`
+  2. `backend/app/tools/code_executor.py`
+- 关键改造：
+  1. `backend/app/tools/__init__.py` 新增工具层统一导出
+  2. `backend/app/agents/agent_runner.py` 接入 `CodeExecutorTool`
+  3. `backend` / `frontend` 角色模板命中 `code_executor` 时，会在共享工作区 `artifacts/` 下真实生成计划文件
+  4. `code_executor.py` 会记录执行结果，并将真实业务产物与 `code_execution_result.json` 一并回传
+  5. 修复 Windows 下 `uvicorn --reload` 环境中的子进程执行兼容问题
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. API 实测通过：`conversation_38 / workflow_38` 执行完成后，`workspace.artifacts` 返回 `backend_plan.json` 与 `code_execution_result.json`
+  4. API 实测通过：节点 `execution_logs[].artifacts` 与磁盘目录 `workspace/projects/conversation_38/workflow_38/artifacts/` 内容一致
 
 ---
 

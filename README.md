@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-当前仓库已完成阶段一闭环，并进入阶段二的首个可用增量：
+当前仓库已完成阶段一闭环，并进入阶段三的首个可用增量：
 
 1. 用户注册与登录
 2. JWT 鉴权与当前用户恢复
@@ -29,12 +29,21 @@
 9. 支持为每条工作流创建共享工作区、状态快照与交接记录
 10. 支持在指定节点进入断点等待，并通过控制接口恢复或改向继续执行
 11. 支持节点失败后的自动重试、快照回滚、层级上报与人工恢复建议展示
+12. 支持项目级记忆跨工作流沉淀长期目标、关键摘要与最近异常
+
+当前阶段三已实现：
+
+1. 新增最小代码执行工具 `code_executor.py`
+2. 当前仅允许执行受限 `python` / `node` 命令
+3. 工具执行结果会写入工作区 `artifacts/code_execution_result.json`
+4. 后端或前端模板命中 `code_executor` 时，会在共享工作区真实生成计划产物
+5. 当前接口返回的 `workspace.artifacts` 会同步包含执行结果文件和真实业务产物
 
 当前下一步目标：
 
-1. 扩展更细粒度的失败策略、工具执行上下文与真实产出物沉淀
-2. 扩展真实工具调用与产出物展示
-3. 引入项目级记忆与更细粒度的执行恢复能力
+1. 扩展 `file_tool`、`api_caller`、`browser_tool` 等后续工具
+2. 补齐前端产出物预览组件与导出链路
+3. 继续增强工具执行上下文、权限边界与验收展示
 
 ## 技术栈
 
@@ -108,6 +117,8 @@ docs/       接口、流程、部署、前端规格文档
 - `workspace/`：工作流共享工作区根目录
 - `workspace/projects/conversation_<id>/workflow_<id>/`：单条工作流的运行目录
 - `workspace/projects/conversation_<id>/project_memory.json`：同一对话下共享的项目级记忆文件
+- `artifacts/code_execution_result.json`：代码执行工具的命令、退出码和标准输出记录
+- `artifacts/backend_plan.json` / `artifacts/frontend_plan.json`：当前最小工具链路生成的计划产物
 - `context/workspace_state.json`：当前工作区状态快照
 - `context/handoff_log.json`：节点间交接记录
 - `workflow_runs`：工作流运行快照、控制信号与断点状态表

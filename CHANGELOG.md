@@ -18,6 +18,11 @@
 - 工作流响应新增 `error_report`，前端卡片可直接展示错误恢复信息
 - 新增项目级记忆管理器 `project_memory.py`
 - 工作流响应新增 `project_memory`，同一对话下可跨工作流复用长期目标、关键摘要与最近异常
+- 新增工具基类 `base_tool.py`
+- 新增最小代码执行工具 `code_executor.py`
+- `backend` / `frontend` 模板命中 `code_executor` 时会在共享工作区 `artifacts/` 生成真实计划文件
+- `workspace.artifacts` 与节点 `execution_logs[].artifacts` 已支持返回真实产物路径
+- 修复 Windows 下代码执行工具在 `uvicorn --reload` 环境中的子进程兼容问题
 
 ### 前端能力
 

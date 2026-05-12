@@ -599,13 +599,15 @@ Authorization: Bearer <access_token>
 - 当前节点会按 `template_id` 绑定预置角色模板，执行提示词和默认工具由模板提供
 - 每个节点完成后会向当前对话追加一条角色摘要消息
 - 每条工作流会在仓库根目录 `workspace/projects/conversation_<id>/workflow_<id>/` 创建共享工作区
+- 当前 `backend` 与 `frontend` 模板命中 `code_executor` 时，会在 `artifacts/` 下真实生成计划文件
 - 同一对话下的多条工作流会共用 `workspace/projects/conversation_<id>/project_memory.json`
 - 节点间交接会写入 `handoff_logs` 与 `context/handoff_log.json`
 - 节点完成后会把摘要沉淀到 `project_memory.key_points`
 - 若命中 `pause_after_nodes` 指定节点，工作流会进入 `waiting_confirm`，同时保存 `workflow_runs.checkpoint_json`
 - 节点失败时会按 `max_retries` 自动重试；超过次数后回滚到最近安全快照，并以 `waiting_confirm + error_report` 形式等待人工恢复
 - 人工修正后可通过 `redirect` 或 `resume` 重新执行失败节点；成功恢复后 `error_report` 会清空
-- 执行完成后，`status` 会更新为 `completed`，并回写 `progress` 与 `execution_logs`
+- 执行完成后，`status` 会更新为 `completed`，并回写 `progress`、`execution_logs` 与 `workspace.artifacts`
+- 2026-05-13 实测通过：`workspace.artifacts` 可同时返回 `backend_plan.json` 与 `code_execution_result.json`
 
 错误码：
 

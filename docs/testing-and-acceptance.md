@@ -26,6 +26,7 @@
 18. 断点控制链路可用
 19. 错误恢复与人工改向链路可用
 20. 项目级记忆链路可用
+21. 代码执行工具与真实产物回传链路可用
 
 ## 建议命令
 
@@ -184,6 +185,20 @@ python -m playwright install chromium
 - 工作流执行完成后，`project_memory.key_points` 会追加节点摘要
 - `GET /api/workflows/{conversation_id}` 返回的 `project_memory` 可反映最新长期目标、关键记忆与最近异常
 
+### 用例 14：阶段三代码执行工具链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- 2026-05-13 实测通过：`POST /api/workflows/{conversation_id}/{workflow_id}/execute` 完成后，`workspace.artifacts` 可返回
+  `backend_plan.json` 和 `code_execution_result.json`
+- 2026-05-13 实测通过：真实文件已落盘到
+  `workspace/projects/conversation_38/workflow_38/artifacts/`
+- `execution_logs[].artifacts` 会同步记录当前节点真实产物路径
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -216,4 +231,5 @@ httpx.AsyncClient(trust_env=False)
 6. 工作流执行是否仍可启动并完成
 7. 错误恢复等待态是否仍可通过 `resume / redirect` 继续推进
 8. 项目级记忆文件与响应字段是否仍可更新
-9. 文档是否仍与实现一致
+9. `workspace.artifacts` 是否仍能返回真实产物文件
+10. 文档是否仍与实现一致
