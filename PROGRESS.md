@@ -106,7 +106,7 @@
 
 - [x] 代码执行工具（code_executor.py）
 - [x] 文件读写工具（file_tool.py）
-- [ ] 外部 API 调用工具（api_caller.py）
+- [x] 外部 API 调用工具（api_caller.py）
 - [ ] Playwright 浏览器自动化工具（browser_tool.py）
 - [ ] 图像生成工具（image_tool.py）
 - [ ] 代码预览组件（CodePreview.tsx）
@@ -157,6 +157,7 @@
 - ✅ 阶段二项目级记忆链路 — 2026-05-13 | 工作流已支持跨工作流沉淀长期目标、关键摘要与最近异常
 - ✅ 阶段三代码执行工具链路 — 2026-05-13 | 工作流已支持最小受限 `python` / `node` 执行、真实计划产物落盘与产物路径回传
 - ✅ 阶段三文件读写工具链路 — 2026-05-13 | 工作流已支持在共享工作区安全写入文本摘要，并将 `.md` 产物回传到执行结果
+- ✅ 阶段三外部 API 调用工具链路 — 2026-05-13 | 工作流已支持受限 HTTP 调用、响应落盘与 `api_response.json` 产物回传
 
 ---
 
@@ -534,6 +535,22 @@
   2. `frontend`: `npm run lint`、`npm run build` 通过
   3. API 实测通过：`conversation_40 / workflow_40` 执行完成后，`workspace.artifacts` 返回 `pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
   4. API 实测通过：节点 `execution_logs[].artifacts` 与磁盘目录 `workspace/projects/conversation_40/workflow_40/artifacts/` 内容一致
+
+### 2026-05-13 会话 #22
+- 执行内容：完成阶段三 `api_caller` 最小真实链路
+- 新增后端文件：
+  1. `backend/app/tools/api_caller.py`
+- 关键改造：
+  1. `backend/app/tools/__init__.py` 新增 `ApiCallerTool` 与 `ApiCallerError` 导出
+  2. `backend/app/agents/templates/role_templates.py` 为后端模板接入 `api_caller`
+  3. `backend/app/agents/agent_runner.py` 接入 `ApiCallerTool`
+  4. 外部 API 工具当前仅允许 `GET / POST` 和 `http / https` 协议，并关闭环境代理影响
+  5. 接口响应会落盘到共享工作区 `artifacts/api_response.json`
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. API 实测通过：`conversation_41 / workflow_41` 执行完成后，`workspace.artifacts` 返回 `api_response.json`、`pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
+  4. API 实测通过：`workspace/projects/conversation_41/workflow_41/artifacts/api_response.json` 已落盘，并包含 `/health` 返回 `200`
 
 ---
 

@@ -46,7 +46,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
             "你是后端工程师，重点关注接口契约、数据结构、服务边界、"
             "错误处理和执行流程。输出要体现可落地的服务端实现思路。"
         ),
-        default_tools=["file_tool", "code_executor"],
+        default_tools=["file_tool", "api_caller", "code_executor"],
         max_retries=3,
     ),
     "qa": RoleTemplate(

@@ -7,6 +7,8 @@ from app.agents.base_agent import AgentResult, AgentTask, BaseAgent
 from app.agents.templates import get_role_template
 from app.core.llm.adapter import ChatMessage, LLMAdapter
 from app.tools import (
+    ApiCallerError,
+    ApiCallerTool,
     CodeExecutionError,
     CodeExecutorTool,
     FileTool,
@@ -29,6 +31,7 @@ class GenericTaskAgent(BaseAgent):
         super().__init__(role=role, llm_model=llm_model, max_retries=max_retries)
         self.adapter = LLMAdapter()
         self.template = get_role_template(template_id)
+        self.api_caller = ApiCallerTool()
         self.file_tool = FileTool()
         self.code_executor = CodeExecutorTool()
 
@@ -121,6 +124,22 @@ class GenericTaskAgent(BaseAgent):
             ensure_ascii=False,
         )
 
+    def build_api_caller_instruction(self, task: AgentTask) -> str:
+        """根据当前节点构造最小 API 调用指令，用于验证接口联通与响应落盘"""
+
+        base_url = "http://127.0.0.1:8000"
+        return json.dumps(
+            {
+                "method": "GET",
+                "url": f"{base_url}/health",
+                "headers": {
+                    "X-Workflow-Id": str(task.workflow_id),
+                    "X-Node-Id": task.node_id,
+                },
+            },
+            ensure_ascii=False,
+        )
+
     async def run(self, task: AgentTask) -> AgentResult:
         """执行节点任务并返回完整文本摘要"""
 
@@ -140,6 +159,17 @@ class GenericTaskAgent(BaseAgent):
                 content = f"{content}\n\n文件产出：{tool_result.summary}"
             except FileToolError as exc:
                 content = f"{content}\n\n文件产出失败：{exc}"
+
+        if "api_caller" in self.template.default_tools:
+            try:
+                tool_result = await self.api_caller.execute(
+                    workspace_path=task.workspace_path,
+                    instruction=self.build_api_caller_instruction(task),
+                )
+                artifacts.extend(tool_result.artifacts)
+                content = f"{content}\n\n接口调用：{tool_result.summary}"
+            except ApiCallerError as exc:
+                content = f"{content}\n\n接口调用失败：{exc}"
 
         if "code_executor" in self.template.default_tools:
             try:

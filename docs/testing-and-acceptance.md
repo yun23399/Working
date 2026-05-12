@@ -28,6 +28,7 @@
 20. 项目级记忆链路可用
 21. 代码执行工具与真实产物回传链路可用
 22. 文件工具与真实文本产物回传链路可用
+23. 外部 API 工具与真实响应产物回传链路可用
 
 ## 建议命令
 
@@ -214,6 +215,20 @@ python -m playwright install chromium
   `workspace/projects/conversation_40/workflow_40/artifacts/`
 - `execution_logs[].artifacts` 与磁盘目录内容一致，可区分文本摘要产物与代码执行产物
 
+### 用例 16：阶段三外部 API 工具链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- 2026-05-13 实测通过：`conversation_41 / workflow_41` 执行完成后，`workspace.artifacts` 返回
+  `api_response.json`、`pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
+- 2026-05-13 实测通过：`api_response.json` 已落盘到
+  `workspace/projects/conversation_41/workflow_41/artifacts/`
+- `api_response.json` 内包含请求地址 `http://127.0.0.1:8000/health`、状态码 `200` 与响应体
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -248,4 +263,5 @@ httpx.AsyncClient(trust_env=False)
 8. 项目级记忆文件与响应字段是否仍可更新
 9. `workspace.artifacts` 是否仍能返回真实产物文件
 10. `file_tool` 生成的 `.md` 产物是否仍能进入节点 artifacts
-11. 文档是否仍与实现一致
+11. `api_caller` 生成的 `api_response.json` 是否仍能进入节点 artifacts
+12. 文档是否仍与实现一致

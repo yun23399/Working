@@ -35,11 +35,13 @@
 
 1. 新增最小代码执行工具 `code_executor.py`
 2. 新增最小文件读写工具 `file_tool.py`
-3. 当前仅允许在共享工作区内执行受限 `python` / `node` 命令
-4. 工具执行结果会写入工作区 `artifacts/code_execution_result.json`
-5. 角色模板命中 `file_tool` 时，会在共享工作区真实生成 `.md` 摘要产物
-6. 后端或前端模板命中 `code_executor` 时，会在共享工作区真实生成计划产物
-7. 当前接口返回的 `workspace.artifacts` 会同步包含执行结果文件和真实业务产物
+3. 新增最小外部接口调用工具 `api_caller.py`
+4. 当前仅允许在共享工作区内执行受限 `python` / `node` 命令
+5. 工具执行结果会写入工作区 `artifacts/code_execution_result.json`
+6. 角色模板命中 `file_tool` 时，会在共享工作区真实生成 `.md` 摘要产物
+7. 后端模板命中 `api_caller` 时，会在共享工作区真实生成 `api_response.json`
+8. 后端或前端模板命中 `code_executor` 时，会在共享工作区真实生成计划产物
+9. 当前接口返回的 `workspace.artifacts` 会同步包含执行结果文件和真实业务产物
 
 当前下一步目标：
 
@@ -121,6 +123,7 @@ docs/       接口、流程、部署、前端规格文档
 - `workspace/projects/conversation_<id>/project_memory.json`：同一对话下共享的项目级记忆文件
 - `artifacts/code_execution_result.json`：代码执行工具的命令、退出码和标准输出记录
 - `artifacts/pm_summary.md` / `backend_summary.md` / `frontend_summary.md`：文件工具生成的角色摘要产物
+- `artifacts/api_response.json`：外部接口调用工具记录的请求地址、状态码和响应体
 - `artifacts/backend_plan.json` / `artifacts/frontend_plan.json`：当前最小工具链路生成的计划产物
 - `context/workspace_state.json`：当前工作区状态快照
 - `context/handoff_log.json`：节点间交接记录

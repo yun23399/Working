@@ -600,6 +600,7 @@ Authorization: Bearer <access_token>
 - 每个节点完成后会向当前对话追加一条角色摘要消息
 - 每条工作流会在仓库根目录 `workspace/projects/conversation_<id>/workflow_<id>/` 创建共享工作区
 - 当前 `pm` / `qa` / `designer` 等模板命中 `file_tool` 时，会在 `artifacts/` 下真实生成 `.md` 摘要文件
+- 当前 `backend` 模板命中 `api_caller` 时，会在 `artifacts/` 下真实生成 `api_response.json`
 - 当前 `backend` 与 `frontend` 模板命中 `code_executor` 时，会在 `artifacts/` 下真实生成计划文件
 - 同一对话下的多条工作流会共用 `workspace/projects/conversation_<id>/project_memory.json`
 - 节点间交接会写入 `handoff_logs` 与 `context/handoff_log.json`
@@ -610,6 +611,7 @@ Authorization: Bearer <access_token>
 - 执行完成后，`status` 会更新为 `completed`，并回写 `progress`、`execution_logs` 与 `workspace.artifacts`
 - 2026-05-13 实测通过：`workspace.artifacts` 可同时返回 `backend_plan.json` 与 `code_execution_result.json`
 - 2026-05-13 实测通过：`workspace.artifacts` 可同时返回 `pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
+- 2026-05-13 实测通过：`workspace.artifacts` 可同时返回 `api_response.json`、`pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
 
 错误码：
 
