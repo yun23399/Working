@@ -287,6 +287,17 @@ python -m playwright install chromium
 - 2026-05-13 接口实测通过：压缩包内文件列表为 `plan.json`、`summary.md`
 - 聊天页产物面板新增“导出产物”按钮，可直接下载当前工作流全部真实产物
 
+### 用例 21：阶段三 Token 用量展示链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- 聊天头部的 Token 统计已抽离为独立 `TokenCounter` 组件
+- 当前统计口径保持不变，仍按 `messages[].tokenCount` 汇总显示本次会话累计 Token 数
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰

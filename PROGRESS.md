@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**⏳ 阶段三：工具集接入（已完成 code_executor / file_tool / api_caller / browser_tool / image_tool 与前端产物预览最小真实链路，阶段二能力已全部打通）**
+**✅ 阶段三：工具集接入（代码执行、文件、API、浏览器、图像、产物预览、产物导出与 Token 展示已完成，下一步进入阶段四体验完善）**
 
 ---
 
@@ -18,8 +18,8 @@
 |------|------|------|
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
 | 阶段二：工作流引擎 | ✅ 已完成 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新、模板、共享工作区、断点、错误恢复与项目级记忆链路 |
-| 阶段三：工具集接入 | ⏳ 进行中 | 已完成代码、文件、API、浏览器、图像工具与前端产物预览最小真实链路 |
-| 阶段四：完善体验 | ⏳ 待开始 | 依赖阶段三完成 |
+| 阶段三：工具集接入 | ✅ 已完成 | 已完成代码、文件、API、浏览器、图像工具、前端产物预览、导出与 Token 展示链路 |
+| 阶段四：完善体验 | ⏳ 待开始 | 阶段三已收尾，可进入体验完善 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
 
 ---
@@ -102,7 +102,7 @@
 
 ---
 
-## 阶段三：任务清单（进行中）
+## 阶段三：任务清单（已完成）
 
 - [x] 代码执行工具（code_executor.py）
 - [x] 文件读写工具（file_tool.py）
@@ -113,7 +113,7 @@
 - [x] 图片预览组件（ImagePreview.tsx）
 - [x] 文档预览组件（DocumentPreview.tsx）
 - [x] 产出物导出功能（file_export.py）
-- [ ] Token 用量展示（TokenCounter.tsx）
+- [x] Token 用量展示（TokenCounter.tsx）
 
 ---
 
@@ -162,6 +162,7 @@
 - ✅ 阶段三图像生成工具链路 — 2026-05-13 | 工作流已支持真实设计图落盘与 `design_image_result.json` 元数据回传，缺少 Key 时可回退本地占位图链路
 - ✅ 阶段三前端产物预览链路 — 2026-05-13 | 聊天页已支持按工作流读取真实产物列表，并预览代码、文档和图片产物
 - ✅ 阶段三产物导出链路 — 2026-05-13 | 后端已支持导出当前工作流真实产物 zip，聊天页可一键下载全部产物
+- ✅ 阶段三 Token 用量展示链路 — 2026-05-13 | 聊天头部已通过独立 `TokenCounter` 组件展示本次会话累计 Token 数
 
 ---
 
@@ -638,6 +639,19 @@
   3. 接口实测通过：`GET /api/workflows/51/49/artifacts/export` 返回 `200`
   4. 接口实测通过：响应头包含 `attachment; filename=\"workflow_49_artifacts.zip\"`
   5. 接口实测通过：压缩包内文件列表为 `plan.json`、`summary.md`
+
+### 2026-05-13 会话 #27
+- 执行内容：完成阶段三 Token 用量展示链路
+- 新增前端文件：
+  1. `frontend/src/components/chat/TokenCounter.tsx`
+- 关键改造：
+  1. 将聊天头部原有的消息 Token 汇总逻辑抽离为独立 `TokenCounter` 组件
+  2. `ChatWindow.tsx` 改为复用 `TokenCounter`，保持当前文案和统计口径不变
+  3. README、CHANGELOG、测试文档与当前阶段说明已同步为阶段三完成状态
+- 验证结果：
+  1. `frontend`: `npm run lint`、`npm run build` 通过
+  2. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  3. 聊天头部已通过独立组件显示 `messages[].tokenCount` 汇总结果
 
 ---
 

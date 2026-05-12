@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react'
 import { ArrowUp, LoaderCircle, Wifi, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MessageBubble } from './MessageBubble'
+import { TokenCounter } from './TokenCounter'
 import type { ActivityLog, ChatMessage, SocketStatus } from '../../types/chat'
 
 interface ChatWindowProps {
@@ -74,9 +75,7 @@ export function ChatWindow({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-line px-6 py-4 text-sm">
-        <div className="text-ink-faint">
-          ● {t('chat.tokenUsage')} · {messages.reduce((total, message) => total + message.tokenCount, 0)} tokens
-        </div>
+        <TokenCounter messages={messages} />
         <div
           className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs ${
             socketStatus === 'connected'
