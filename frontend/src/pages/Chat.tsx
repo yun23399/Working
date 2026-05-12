@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchCurrentUser } from '../api/auth'
 import { ApiRequestError } from '../api/client'
@@ -17,10 +17,12 @@ import {
 } from '../api/workflows'
 import { ChatWindow } from '../components/chat/ChatWindow'
 import { MainArea } from '../components/layout/MainArea'
+import { ArtifactPreviewPanel } from '../components/workspace/ArtifactPreviewPanel'
 import { Sidebar } from '../components/layout/Sidebar'
 import { TopNav } from '../components/layout/TopNav'
 import { LogViewer } from '../components/workflow/LogViewer'
 import { WorkflowConfirm } from '../components/workflow/WorkflowConfirm'
+import { useWorkflowArtifacts } from '../hooks/useWorkflowArtifacts'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
@@ -70,6 +72,7 @@ export function Chat() {
   const navigate = useNavigate()
   const bootstrappedRef = useRef(false)
   const workflowRefreshTimersRef = useRef<Record<string, number>>({})
+  const [selectedArtifactPath, setSelectedArtifactPath] = useState<string | null>(null)
   const clearSession = useAuthStore((state) => state.clearSession)
   const setUser = useAuthStore((state) => state.setUser)
   const token = useAuthStore((state) => state.token)
@@ -170,18 +173,35 @@ export function Chat() {
     (log) => log.agentId === 'system' || log.agentId === 'manager',
   )
 
-  useEffect(() => {
-    if (!token) {
-      navigate('/login', { replace: true })
-    }
-  }, [navigate, token])
-
   const handleUnauthorized = useCallback(() => {
     clearSession()
     clearChatState()
     clearWorkflowState()
     navigate('/login', { replace: true })
   }, [clearChatState, clearSession, clearWorkflowState, navigate])
+
+  const {
+    artifacts: workflowArtifacts,
+    artifactListError,
+    imageObjectUrl,
+    isLoadingArtifacts,
+    isLoadingPreview,
+    previewError,
+    previewText,
+    selectedArtifact,
+  } = useWorkflowArtifacts({
+    conversationId: activeConversationId,
+    workflowId: activeWorkflowPreview?.workflow_id ?? null,
+    selectedArtifactPath,
+    token,
+    onUnauthorized: handleUnauthorized,
+  })
+
+  useEffect(() => {
+    if (!token) {
+      navigate('/login', { replace: true })
+    }
+  }, [navigate, token])
 
   const loadMessages = useCallback(async (nextConversationId: number, authToken: string) => {
     try {
@@ -852,7 +872,21 @@ export function Chat() {
                 void handleControlWorkflow('redirect')
               }}
             />
-            <LogViewer logs={workflowRuntimeLogs} />
+            <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+              <ArtifactPreviewPanel
+                artifactListError={artifactListError}
+                artifacts={workflowArtifacts}
+                isLoadingArtifacts={isLoadingArtifacts}
+                isLoadingPreview={isLoadingPreview}
+                previewError={previewError}
+                previewImageUrl={imageObjectUrl}
+                previewText={previewText}
+                selectedArtifact={selectedArtifact}
+                workflow={activeWorkflowPreview}
+                onSelectArtifact={setSelectedArtifactPath}
+              />
+              <LogViewer logs={workflowRuntimeLogs} />
+            </div>
             <div className="min-h-0 flex-1 overflow-hidden rounded-[24px] border border-line bg-white/80 shadow-sm">
               <ChatWindow
                 draft={draft}

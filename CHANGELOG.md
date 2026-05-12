@@ -30,6 +30,8 @@
 - 设计师模板命中 `image_tool` 时会在共享工作区 `artifacts/` 生成真实设计图片和图像结果文件
 - `backend` / `frontend` 模板命中 `code_executor` 时会在共享工作区 `artifacts/` 生成真实计划文件
 - `workspace.artifacts` 与节点 `execution_logs[].artifacts` 已支持返回真实产物路径
+- 新增受保护工作流产物接口 `/api/workflows/{conversation_id}/{workflow_id}/artifacts`
+- 新增受保护工作流产物文件接口 `/api/workflows/{conversation_id}/{workflow_id}/artifacts/file`
 - 修复 Windows 下代码执行工具在 `uvicorn --reload` 环境中的子进程兼容问题
 - 修复 Windows 下浏览器工具在 `uvicorn --reload` 环境中的 Playwright 子进程兼容问题
 - 新增图像工具在缺少 `OPENAI_API_KEY` 时的本地占位图回退链路，保证阶段三回归可执行
@@ -38,6 +40,9 @@
 
 - 新增工作流运行日志面板 `LogViewer`
 - 聊天页改为分离聊天日志与工作流编排日志
+- 新增工作流产物预览面板 `ArtifactPreviewPanel`
+- 新增 `CodePreview`、`ImagePreview`、`DocumentPreview` 三类真实产物预览组件
+- 聊天页可直接读取并预览当前工作流的代码、文档与图片产物
 - `workflowStore` 新增按工作流缓存运行时日志的状态管理
 - `useWebSocket` 新增日志事件回调扩展点，支持页面侧按场景消费 `log` 事件
 - 工作流重新执行前会清空当前运行日志，避免旧日志残留

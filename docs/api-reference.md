@@ -257,7 +257,7 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 4. 工作流预览接口
+## 4. 工作流接口
 
 ### GET /api/workflows/{conversation_id}
 
@@ -341,6 +341,80 @@ Authorization: Bearer <access_token>
 - `USER_NOT_FOUND`
 - `CONVERSATION_NOT_FOUND`
 - `LIST_WORKFLOWS_FAILED`
+
+### GET /api/workflows/{conversation_id}/{workflow_id}/artifacts
+
+用途：获取指定工作流当前可见的真实产物列表，供前端选择代码、文档或图片预览目标。
+
+成功响应：
+
+```json
+[
+  {
+    "name": "design_mockup.png",
+    "relative_path": "design_mockup.png",
+    "preview_type": "image",
+    "mime_type": "image/png",
+    "size_bytes": 367363,
+    "updated_at": "2026-05-13T04:28:00+00:00"
+  },
+  {
+    "name": "design_brief.md",
+    "relative_path": "design_brief.md",
+    "preview_type": "document",
+    "mime_type": "text/markdown",
+    "size_bytes": 845,
+    "updated_at": "2026-05-13T04:28:00+00:00"
+  }
+]
+```
+
+说明：
+
+- 当前接口会优先汇总 `workspace.artifacts`，并补齐磁盘 `artifacts/` 目录中的真实文件
+- `relative_path` 仅允许定位到当前工作流的 `artifacts/` 目录内文件
+- `preview_type` 当前支持 `code / document / image / binary`
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `WORKFLOW_NOT_FOUND`
+- `LIST_WORKFLOW_ARTIFACTS_FAILED`
+
+### GET /api/workflows/{conversation_id}/{workflow_id}/artifacts/file
+
+用途：按相对路径读取指定工作流下的单个真实产物文件内容，供前端做图片或文本预览。
+
+查询参数：
+
+```text
+path=design_brief.md
+```
+
+成功响应：
+
+- 图片文件返回对应二进制流，例如 `image/png`
+- 文本文件返回文本流，例如 `text/markdown; charset=utf-8`
+
+说明：
+
+- 当前接口要求 `path` 必须位于当前工作流的 `artifacts/` 目录内
+- 前端会基于上一个接口返回的 `relative_path` 调用当前接口
+- 2026-05-13 实测通过：`conversation_50 / workflow_48` 可读取 `design_mockup.png` 与 `design_brief.md`
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `WORKFLOW_NOT_FOUND`
+- `WORKFLOW_ARTIFACT_NOT_FOUND`
+- `INVALID_WORKFLOW_ARTIFACT_PATH`
+- `GET_WORKFLOW_ARTIFACT_FAILED`
 
 ### POST /api/workflows/{conversation_id}/preview
 
@@ -689,6 +763,7 @@ Authorization: Bearer <access_token>
 
 错误码：
 
+- `CONVERSATION_NOT_FOUND`
 - `WORKFLOW_NOT_FOUND`
 - `WORKFLOW_RUN_NOT_FOUND`
 - `INVALID_WORKFLOW_CONTROL_ACTION`

@@ -12,9 +12,10 @@ dist/
 .env
 
 # Runtime
-logs/
-workspace/
-data/
+/logs/
+/workspace/
+/data/
+/backend/data/
 *.zip
 *.log
 

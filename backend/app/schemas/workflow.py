@@ -105,6 +105,17 @@ class WorkflowProjectMemorySchema(BaseModel):
     updated_at: str
 
 
+class WorkflowArtifactSchema(BaseModel):
+    """工作流产物描述模型，供前端按类型渲染预览组件"""
+
+    name: str
+    relative_path: str
+    preview_type: str
+    mime_type: str
+    size_bytes: int
+    updated_at: str
+
+
 class WorkflowRunSchema(BaseModel):
     """工作流运行状态模型，描述当前轮次与断点控制信息"""
 

@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #24）
+> 更新者：Codex（会话 #25）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段三：工具集接入（已完成 code_executor / file_tool / api_caller / browser_tool / image_tool 最小真实链路，阶段二能力已全部打通）**
+**⏳ 阶段三：工具集接入（已完成 code_executor / file_tool / api_caller / browser_tool / image_tool 与前端产物预览最小真实链路，阶段二能力已全部打通）**
 
 ---
 
@@ -18,7 +18,7 @@
 |------|------|------|
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
 | 阶段二：工作流引擎 | ✅ 已完成 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新、模板、共享工作区、断点、错误恢复与项目级记忆链路 |
-| 阶段三：工具集接入 | ⏳ 进行中 | 已完成代码、文件、API、浏览器、图像工具最小真实链路 |
+| 阶段三：工具集接入 | ⏳ 进行中 | 已完成代码、文件、API、浏览器、图像工具与前端产物预览最小真实链路 |
 | 阶段四：完善体验 | ⏳ 待开始 | 依赖阶段三完成 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
 
@@ -109,9 +109,9 @@
 - [x] 外部 API 调用工具（api_caller.py）
 - [x] Playwright 浏览器自动化工具（browser_tool.py）
 - [x] 图像生成工具（image_tool.py）
-- [ ] 代码预览组件（CodePreview.tsx）
-- [ ] 图片预览组件（ImagePreview.tsx）
-- [ ] 文档预览组件（DocumentPreview.tsx）
+- [x] 代码预览组件（CodePreview.tsx）
+- [x] 图片预览组件（ImagePreview.tsx）
+- [x] 文档预览组件（DocumentPreview.tsx）
 - [ ] 产出物导出功能（file_export.py）
 - [ ] Token 用量展示（TokenCounter.tsx）
 
@@ -160,6 +160,7 @@
 - ✅ 阶段三外部 API 调用工具链路 — 2026-05-13 | 工作流已支持受限 HTTP 调用、响应落盘与 `api_response.json` 产物回传
 - ✅ 阶段三浏览器自动化工具链路 — 2026-05-13 | 工作流已支持受限页面访问、截图落盘与 `browser_result.json` / `snapshot.png` 产物回传
 - ✅ 阶段三图像生成工具链路 — 2026-05-13 | 工作流已支持真实设计图落盘与 `design_image_result.json` 元数据回传，缺少 Key 时可回退本地占位图链路
+- ✅ 阶段三前端产物预览链路 — 2026-05-13 | 聊天页已支持按工作流读取真实产物列表，并预览代码、文档和图片产物
 
 ---
 
@@ -589,6 +590,33 @@
   3. Agent 级实测通过：设计师模板可生成真实图片产物与元数据文件
   4. API 实测通过：`conversation_50 / workflow_48` 执行完成后，`workspace.artifacts` 返回 `design_brief.md`、`design_mockup.png` 与 `design_image_result.json`
   5. API 实测通过：`design_image_result.json` 已落盘，并记录当前环境使用 `local_placeholder_renderer` 回退链路
+
+### 2026-05-13 会话 #25
+- 执行内容：完成阶段三前端产物预览链路
+- 新增后端文件：
+  1. `backend/app/services/workflow_artifact_service.py`
+- 新增前端文件：
+  1. `frontend/src/api/workflowArtifacts.ts`
+  2. `frontend/src/hooks/useWorkflowArtifacts.ts`
+  3. `frontend/src/utils/workflowArtifacts.ts`
+  4. `frontend/src/components/workspace/ArtifactPreviewPanel.tsx`
+  5. `frontend/src/components/workspace/CodePreview.tsx`
+  6. `frontend/src/components/workspace/ImagePreview.tsx`
+  7. `frontend/src/components/workspace/DocumentPreview.tsx`
+- 关键改造：
+  1. `backend/app/api/workflows.py` 新增受保护工作流产物列表接口与单文件读取接口，统一复用现有 JWT 与对话归属校验
+  2. `backend/app/schemas/workflow.py` 新增 `WorkflowArtifactSchema`，用于描述前端可消费的产物元数据
+  3. `frontend/src/pages/Chat.tsx` 接入产物预览面板，与现有工作流卡片和日志面板并列展示
+  4. 前端新增代码、文档、图片三类预览组件，并按真实文件类型自动切换
+  5. 默认会优先选择图片产物，其次文档和代码产物，便于直接查看设计图和页面截图
+  6. `README.md`、`docs/api-reference.md`、`docs/product-flow.md`、`docs/testing-and-acceptance.md` 与 `CHANGELOG.md` 已同步到当前实现
+- 验证结果：
+  1. `frontend`: `npm run lint`、`npm run build` 通过
+  2. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  3. 接口实测通过：`GET /api/workflows/50/48/artifacts` 返回 `200`，当前工作流可见产物共 `12` 项
+  4. 接口实测通过：`GET /api/workflows/50/48/artifacts/file?path=design_mockup.png` 返回 `200`，`content-type=image/png`
+  5. 接口实测通过：`GET /api/workflows/50/48/artifacts/file?path=design_brief.md` 返回 `200`，`content-type=text/markdown`
+  6. 越权/不存在会话实测通过：`GET /api/workflows/999999/48/artifacts` 返回 `404`，错误码 `CONVERSATION_NOT_FOUND`
 
 ---
 

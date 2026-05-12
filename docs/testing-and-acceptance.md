@@ -31,6 +31,7 @@
 23. 外部 API 工具与真实响应产物回传链路可用
 24. 浏览器工具与真实截图/页面元数据回传链路可用
 25. 图像工具与真实图片/图像元数据回传链路可用
+26. 工作流产物预览与受保护文件读取链路可用
 
 ## 建议命令
 
@@ -259,6 +260,20 @@ python -m playwright install chromium
   `workspace/projects/conversation_50/workflow_48/artifacts/`
 - 当前环境未配置 `OPENAI_API_KEY`，因此 `design_image_result.json` 记录为 `local_placeholder_renderer` 回退路径，用于保证链路可验证
 
+### 用例 19：阶段三工作流产物预览链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- 2026-05-13 接口实测通过：`GET /api/workflows/50/48/artifacts` 返回 `200`，当前工作流可见产物共 `12` 项
+- 2026-05-13 接口实测通过：`GET /api/workflows/50/48/artifacts/file?path=design_mockup.png` 返回 `200`，`content-type=image/png`
+- 2026-05-13 接口实测通过：`GET /api/workflows/50/48/artifacts/file?path=design_brief.md` 返回 `200`，`content-type=text/markdown`
+- 2026-05-13 接口实测通过：不存在或无权限的会话访问会返回 `404`，错误码 `CONVERSATION_NOT_FOUND`
+- 聊天页新增产物预览面板，当前可按真实文件类型切换代码、文档与图片预览
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -296,4 +311,6 @@ httpx.AsyncClient(trust_env=False)
 11. `api_caller` 生成的 `api_response.json` 是否仍能进入节点 artifacts
 12. `browser_tool` 生成的截图与元数据是否仍能进入节点 artifacts
 13. `image_tool` 生成的图片与元数据是否仍能进入节点 artifacts
-14. 文档是否仍与实现一致
+14. `/api/workflows/{conversation_id}/{workflow_id}/artifacts` 是否仍能返回真实产物清单
+15. `/api/workflows/{conversation_id}/{workflow_id}/artifacts/file` 是否仍能正确返回图片或文本内容
+16. 文档是否仍与实现一致

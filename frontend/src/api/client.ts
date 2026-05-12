@@ -14,6 +14,7 @@ interface RequestJsonOptions {
   method?: 'GET' | 'POST'
   token?: string | null
   body?: object
+  accept?: string
 }
 
 // 统一的 API 请求错误，暴露状态码和后端错误码
@@ -66,10 +67,10 @@ function buildHttpUrl(path: string): string {
   return `${resolveApiBaseUrl()}${path}`
 }
 
-// 统一发送 JSON 请求，并将后端错误转换为可处理异常
-export async function requestJson<T>(path: string, options: RequestJsonOptions = {}): Promise<T> {
+// 统一发送原始 HTTP 请求，并保留响应体供不同类型解析
+async function requestResponse(path: string, options: RequestJsonOptions = {}): Promise<Response> {
   const headers = new Headers({
-    Accept: 'application/json',
+    Accept: options.accept ?? 'application/json',
   })
 
   if (options.body) {
@@ -96,7 +97,34 @@ export async function requestJson<T>(path: string, options: RequestJsonOptions =
     throw extractApiError(errorBody, response.status)
   }
 
+  return response
+}
+
+// 统一发送 JSON 请求，并将后端错误转换为可处理异常
+export async function requestJson<T>(path: string, options: RequestJsonOptions = {}): Promise<T> {
+  const response = await requestResponse(path, {
+    ...options,
+    accept: 'application/json',
+  })
   return (await response.json()) as T
+}
+
+// 统一读取文本型响应，供代码和文档预览直接消费
+export async function requestText(path: string, options: RequestJsonOptions = {}): Promise<string> {
+  const response = await requestResponse(path, {
+    ...options,
+    accept: 'text/plain, application/json;q=0.9, */*;q=0.8',
+  })
+  return response.text()
+}
+
+// 统一读取二进制响应，供图片等产物生成本地预览 URL
+export async function requestBlob(path: string, options: RequestJsonOptions = {}): Promise<Blob> {
+  const response = await requestResponse(path, {
+    ...options,
+    accept: '*/*',
+  })
+  return response.blob()
 }
 
 // 根据当前 API 地址推导 WebSocket 地址，避免重复配置

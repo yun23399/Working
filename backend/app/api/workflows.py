@@ -1,8 +1,10 @@
-"""工作流路由模块，提供预览生成、查询、确认与执行接口"""
+"""工作流路由模块，提供预览生成、查询、确认、产物访问与执行接口"""
 
 import asyncio
+import mimetypes
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -12,13 +14,21 @@ from app.models.conversation import Conversation
 from app.models.user import User
 from app.models.workflow import Workflow
 from app.schemas.workflow import (
+    WorkflowArtifactSchema,
     WorkflowControlRequestSchema,
     WorkflowPreviewRequestSchema,
     WorkflowPreviewResponseSchema,
 )
 from app.services.conversation_service import (
+    ConversationNotFoundError,
     get_conversation_by_owner,
     load_conversation_context,
+)
+from app.services.workflow_artifact_service import (
+    InvalidWorkflowArtifactPathError,
+    WorkflowArtifactNotFoundError,
+    list_workflow_artifacts,
+    resolve_workflow_artifact_path,
 )
 from app.services.workflow_service import (
     WorkflowNotFoundError,
@@ -73,12 +83,135 @@ def get_workflow_list(
         conversation = get_conversation_by_owner(db, conversation_id, current_user)
         workflows = list_workflows_by_conversation(db, conversation.id)
         return [workflow_to_response(item) for item in workflows]
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
                 "error": "获取工作流预览失败",
                 "code": "LIST_WORKFLOWS_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+
+
+@router.get(
+    "/{conversation_id}/{workflow_id}/artifacts",
+    response_model=list[WorkflowArtifactSchema],
+)
+def get_workflow_artifacts_endpoint(
+    conversation_id: int,
+    workflow_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[WorkflowArtifactSchema]:
+    """返回指定工作流的真实产物列表，供前端选择预览目标"""
+
+    try:
+        conversation = get_conversation_by_owner(db, conversation_id, current_user)
+        workflow = get_workflow_by_id(db, workflow_id, conversation.id)
+        return list_workflow_artifacts(workflow)
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "工作流预览不存在",
+                "code": "WORKFLOW_NOT_FOUND",
+                "detail": f"工作流 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "获取工作流产物失败",
+                "code": "LIST_WORKFLOW_ARTIFACTS_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+
+
+@router.get("/{conversation_id}/{workflow_id}/artifacts/file")
+def get_workflow_artifact_file_endpoint(
+    conversation_id: int,
+    workflow_id: int,
+    path: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> FileResponse:
+    """返回指定工作流的单个真实产物文件，供前端读取文本或图片内容"""
+
+    try:
+        conversation = get_conversation_by_owner(db, conversation_id, current_user)
+        workflow = get_workflow_by_id(db, workflow_id, conversation.id)
+        artifact_path = resolve_workflow_artifact_path(workflow, path)
+        media_type = (
+            mimetypes.guess_type(artifact_path.name)[0] or "application/octet-stream"
+        )
+        return FileResponse(
+            path=artifact_path,
+            media_type=media_type,
+            filename=artifact_path.name,
+        )
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "工作流预览不存在",
+                "code": "WORKFLOW_NOT_FOUND",
+                "detail": f"工作流 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except InvalidWorkflowArtifactPathError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "工作流产物路径不合法",
+                "code": "INVALID_WORKFLOW_ARTIFACT_PATH",
+                "detail": str(exc),
+            },
+        ) from exc
+    except WorkflowArtifactNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "工作流产物不存在",
+                "code": "WORKFLOW_ARTIFACT_NOT_FOUND",
+                "detail": f"产物 `{exc}` 不存在或尚未生成",
+            },
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "读取工作流产物失败",
+                "code": "GET_WORKFLOW_ARTIFACT_FAILED",
                 "detail": str(exc),
             },
         ) from exc
@@ -110,6 +243,15 @@ def create_workflow_preview_endpoint(
             pause_after_nodes=payload.pause_after_nodes,
         )
         return workflow_to_response(workflow)
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
     except SQLAlchemyError as exc:
         db.rollback()
         raise HTTPException(
@@ -139,6 +281,15 @@ def confirm_workflow_preview_endpoint(
         workflow = get_workflow_by_id(db, workflow_id, conversation.id)
         updated_workflow = confirm_workflow_preview(db, workflow)
         return workflow_to_response(updated_workflow)
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
     except WorkflowNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -188,6 +339,15 @@ async def execute_workflow_endpoint(
         running_workflow = mark_workflow_running(db, workflow)
         asyncio.create_task(run_workflow_execution_async(running_workflow.id))
         return workflow_to_response(running_workflow)
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
     except WorkflowNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -262,6 +422,15 @@ def control_workflow_endpoint(
 
         db.refresh(workflow)
         return workflow_to_response(workflow)
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
     except WorkflowNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

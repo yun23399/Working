@@ -46,6 +46,19 @@ export interface WorkflowExecutionLog {
   artifacts: string[]
 }
 
+// 工作流产物预览类型
+export type WorkflowArtifactPreviewType = 'code' | 'image' | 'document' | 'binary'
+
+// 工作流产物描述类型
+export interface WorkflowArtifact {
+  name: string
+  relative_path: string
+  preview_type: WorkflowArtifactPreviewType
+  mime_type: string
+  size_bytes: number
+  updated_at: string
+}
+
 // 工作流交接记录类型
 export interface WorkflowHandoffLog {
   from_agent: string
