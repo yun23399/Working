@@ -1,7 +1,7 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-12
-> 更新者：Codex（会话 #6）
+> 更新者：Codex（会话 #7）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
@@ -41,11 +41,11 @@
 - 验收标准：前后端依赖安装、Lint、构建、迁移、启动全部通过
 
 ### Step 2 — 后端真实认证闭环
-- [ ] `backend/app/utils/security.py`：实现 bcrypt + JWT 工具函数
-- [ ] `POST /api/auth/register`：唯一校验、密码哈希、DB 持久化
-- [ ] `POST /api/auth/login`：密码校验、JWT 签发
-- [ ] `backend/app/api/deps.py`：实现 `get_current_user`
-- [ ] 后端错误返回统一符合 AGENTS.md 第 9 条格式
+- [x] `backend/app/utils/security.py`：实现 bcrypt + JWT 工具函数
+- [x] `POST /api/auth/register`：唯一校验、密码哈希、DB 持久化
+- [x] `POST /api/auth/login`：密码校验、JWT 签发
+- [x] `backend/app/api/deps.py`：实现 `get_current_user`
+- [x] 后端错误返回统一符合 AGENTS.md 第 9 条格式
 - 验收标准：注册、登录、鉴权接口可用
 
 ### Step 3 — 日志与最小对话后端闭环
@@ -136,6 +136,7 @@
 - ✅ GitHub 远程备份 — 2026-05-12 | 已连接 `https://github.com/yun23399/Working.git` 并推送到 `origin/dev`
 - ✅ 前后端真实工程骨架 — 2026-05-12 | frontend Vite/React/TS + backend FastAPI/SQLAlchemy/Alembic
 - ✅ 阶段一 Step 1 基础验证 — 2026-05-12 | 前端 lint/build 与后端 ruff/black/alembic/health 通过
+- ✅ 阶段一 Step 2 认证闭环 — 2026-05-12 | 注册、登录、JWT 鉴权与 `/api/auth/me` 实测通过
 
 ---
 
@@ -266,6 +267,31 @@
   2. 落地认证 API 与 `deps.py`
   3. 开始最小对话后端闭环
 
+### 2026-05-12 会话 #7
+- 执行内容：完成阶段一 Step 2 后端真实认证闭环
+- 创建文件：
+  1. `backend/app/models/user.py`
+  2. `backend/app/schemas/auth.py`
+  3. `backend/app/utils/security.py`
+  4. `backend/app/services/auth_service.py`
+  5. `backend/app/api/deps.py`
+  6. `backend/app/api/auth.py`
+- 修改文件：
+  1. `backend/app/main.py`
+  2. `backend/app/config.py`
+  3. `backend/app/models/__init__.py`
+  4. `backend/app/schemas/__init__.py`
+  5. `backend/app/services/__init__.py`
+- 验证结果：
+  1. `python -m ruff check .` 通过
+  2. `python -m black --check .` 通过
+  3. 临时启动 `127.0.0.1:8002` 后，`/api/auth/register`、`/api/auth/login`、`/api/auth/me` 实测通过
+  4. 注册用户 `alice`、登录返回 `bearer`、携带 JWT 可成功读取当前用户
+- 下次优先：
+  1. 实现 `logger.py`
+  2. 落地 WebSocket 端点与连接管理器
+  3. 开始最小对话后端闭环
+
 ---
 
 ## 已知问题 / 待决定事项
@@ -274,7 +300,7 @@
 |------|------|------|--------|
 | #001 | 当前仓库缺少前后端真实代码目录，与旧进度记录不一致 | ✅ 已解决 | 高 |
 | #002 | `files.zip` 不包含前后端工程代码，仅包含文档文件 | ⚠️ 已确认 | 高 |
-| #003 | 阶段一必须先完成状态对齐与依赖验证，认证 / 对话 / LLM 才能继续推进 | ⏳ 待执行 | 高 |
+| #003 | 阶段一必须先完成状态对齐与依赖验证，认证 / 对话 / LLM 才能继续推进 | ✅ 已完成前两项 | 高 |
 | #004 | 当前仓库尚未落地 `frontend/` 与 `backend/` 实体工程，GitHub 上仍只有文档与基线文件 | ✅ 已解决 | 高 |
 | #006 | 本机 `127.0.0.1:8000` 已被其他 `uvicorn --reload` 进程占用，后续本项目本地联调需避开该端口或先确认归属 | ⚠️ 已确认 | 中 |
 | #005 | 本机未发现 `gh`，若后续需要 CLI 创建仓库或发 PR，需先安装并登录 GitHub CLI | ⏳ 待处理 | 中 |
