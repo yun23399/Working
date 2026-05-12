@@ -9,6 +9,7 @@ from loguru import logger
 from sqlalchemy.orm import Session
 
 from app.core.manager.workflow_planner import WorkflowDag, WorkflowNode
+from app.core.memory.project_memory import ProjectMemoryManager
 from app.models.workflow import Workflow
 from app.models.workflow_run import WorkflowRun
 from app.workflow.checkpoint import WorkflowCheckpointController
@@ -62,6 +63,7 @@ class WorkflowErrorHandler:
         retry_count = self._resolve_retry_count(workflow_run, failed_node.id) + 1
         can_retry = retry_count <= failed_node.max_retries
         workspace = WorkflowWorkspace(workflow)
+        project_memory = ProjectMemoryManager(workflow)
 
         rollback_state = self._build_rollback_state(
             workflow=workflow,
@@ -79,6 +81,18 @@ class WorkflowErrorHandler:
             can_retry=can_retry,
             checkpoint_payload=checkpoint_payload,
             rollback_state=rollback_state,
+        )
+        recovery_suggestion = self._build_recovery_suggestion(
+            dag=dag,
+            failed_node=failed_node,
+            exc=exc,
+            checkpoint_payload=checkpoint_payload,
+        )
+        project_memory.record_error(
+            node_id=failed_node.id,
+            role=failed_node.role,
+            error_message=str(exc),
+            recovery_suggestion=recovery_suggestion,
         )
 
         logger.error(
@@ -118,12 +132,6 @@ class WorkflowErrorHandler:
                 latest_retry_count=retry_count,
             )
 
-        suggestion = self._build_recovery_suggestion(
-            dag=dag,
-            failed_node=failed_node,
-            exc=exc,
-            checkpoint_payload=checkpoint_payload,
-        )
         workflow.status = "waiting_confirm"
         workflow.progress = rollback_state.get("progress", workflow.progress)
         workflow.execution_log_json = self._dumps_json(rollback_logs)
@@ -139,7 +147,7 @@ class WorkflowErrorHandler:
         db.commit()
         db.refresh(workflow)
 
-        error_payload["recovery_suggestion"] = suggestion
+        error_payload["recovery_suggestion"] = recovery_suggestion
         return WorkflowRecoveryDecision(
             should_continue=False,
             next_status="waiting_confirm",

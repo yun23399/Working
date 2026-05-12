@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.agents.base_agent import AgentTask
 from app.api.ws import connection_manager
 from app.core.manager.workflow_planner import WorkflowDag, WorkflowNode
+from app.core.memory.project_memory import ProjectMemoryManager
 from app.models.conversation import Conversation
 from app.models.workflow import Workflow
 from app.services.conversation_service import save_agent_message
@@ -105,6 +106,7 @@ class DagOrchestrator:
             f"需求目标：{requirement_payload['goal']}\n"
             f"约束：{'；'.join(requirement_payload['constraints'])}\n"
             f"最近交接：{handoff_text}\n"
+            f"{ProjectMemoryManager(workflow).get_context_snapshot()}\n"
             f"{workspace_snapshot}"
         )
 
@@ -159,6 +161,7 @@ class DagOrchestrator:
         ordered_nodes = self.sort_nodes(dag)
         execution_logs: list[dict[str, Any]] = []
         workspace = WorkflowWorkspace(workflow)
+        project_memory = ProjectMemoryManager(workflow)
         workspace_dir = workspace.ensure_workspace()
         self.checkpoint_controller.create_run(db, workflow)
 
@@ -459,6 +462,12 @@ class DagOrchestrator:
             workspace.append_handoff(
                 from_agent=current_node.id,
                 to_agent=ordered_nodes[index].id if index < total_nodes else "workflow",
+                summary=result.summary,
+                artifacts=result.artifacts,
+            )
+            project_memory.record_node_result(
+                node_id=current_node.id,
+                role=current_node.role,
                 summary=result.summary,
                 artifacts=result.artifacts,
             )

@@ -1,7 +1,7 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #18）
+> 更新者：Codex（会话 #19）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
@@ -98,7 +98,7 @@
 - [x] 断点控制（checkpoint.py）
 - [x] 错误处理与层级上报（error_handler.py）
 - [x] 工作流日志实时展示（LogViewer.tsx）
-- [ ] 项目级记忆（project_memory.py）
+- [x] 项目级记忆（project_memory.py）
 
 ---
 
@@ -154,6 +154,7 @@
 - ✅ 阶段二共享工作区链路 — 2026-05-13 | 工作流已具备根目录共享工作区、状态快照与节点交接记录能力
 - ✅ 阶段二断点控制链路 — 2026-05-13 | 工作流已支持运行快照、等待确认、恢复执行与控制接口
 - ✅ 阶段二错误恢复链路 — 2026-05-13 | 工作流已支持节点重试、失败回滚、层级上报、恢复建议与人工改向重跑
+- ✅ 阶段二项目级记忆链路 — 2026-05-13 | 工作流已支持跨工作流沉淀长期目标、关键摘要与最近异常
 
 ---
 
@@ -484,6 +485,21 @@
   2. `frontend`: `npm run lint`、`npm run build` 通过
   3. API 实测通过：构造错误节点后，工作流进入 `waiting_confirm`，并返回 `error_report`
   4. API 实测通过：修正失败节点后调用 `redirect`，工作流可继续执行至 `completed`
+
+### 2026-05-13 会话 #19
+- 执行内容：完成阶段二项目级记忆链路
+- 新增后端文件：
+  1. `backend/app/core/memory/project_memory.py`
+- 关键改造：
+  1. 工作流预览创建时初始化 `project_memory.json`，沉淀长期目标与约束
+  2. `dag_orchestrator.py` 在节点完成后将摘要写入项目级记忆
+  3. `error_handler.py` 在节点失败后将最近异常同步写入项目级记忆
+  4. 工作流响应新增 `project_memory`，前端卡片可展示关键记忆与最近异常
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. API 实测通过：工作流预览响应返回 `project_memory`
+  4. API 实测通过：执行完成后 `workspace/projects/conversation_<id>/project_memory.json` 已落盘并包含节点摘要
 
 ---
 

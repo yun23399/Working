@@ -372,6 +372,38 @@ export function WorkflowConfirm({
                   运行状态：{workflow.workflow_run.status} / 控制信号：{workflow.workflow_run.control_signal}
                 </div>
               </div>
+              <div className="mt-4 rounded-[20px] border border-line bg-[#f8f4eb] px-4 py-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-ink-faint">项目级记忆</div>
+                <div className="mt-3 text-sm leading-6 text-ink-soft">
+                  长期目标：{workflow.project_memory.latest_goal || '当前尚未沉淀长期目标。'}
+                </div>
+                <div className="mt-2 text-xs text-ink-faint">
+                  记忆文件：{workflow.project_memory.memory_path}
+                </div>
+                <div className="mt-2 text-xs text-ink-faint">
+                  累计工作流：{workflow.project_memory.workflow_count}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {workflow.project_memory.key_points.length > 0 ? (
+                    workflow.project_memory.key_points.map((item) => (
+                      <span
+                        key={item}
+                        className="rounded-full bg-white/80 px-3 py-1 text-xs text-ink-soft"
+                      >
+                        {item}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-ink-faint">当前还没有沉淀关键记忆。</span>
+                  )}
+                </div>
+                {workflow.project_memory.latest_error ? (
+                  <div className="mt-3 rounded-2xl border border-[#e3c2bf] bg-[#fff5f4] px-3 py-3 text-sm leading-6 text-[#7c3f3a]">
+                    最近异常：{workflow.project_memory.latest_error.role} ·{' '}
+                    {workflow.project_memory.latest_error.error_message}
+                  </div>
+                ) : null}
+              </div>
               {waitingDescription ? (
                 <div className="mt-4 rounded-[18px] border border-[#e5d6a2] bg-[#fff8df] px-4 py-3 text-sm text-[#8a6500]">
                   {waitingDescription}

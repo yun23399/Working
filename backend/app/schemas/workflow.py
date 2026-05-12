@@ -81,6 +81,30 @@ class WorkflowWorkspaceStateSchema(BaseModel):
     pause_after_nodes: list[str] = []
 
 
+class WorkflowProjectMemoryErrorSchema(BaseModel):
+    """项目级记忆中的最近错误摘要"""
+
+    workflow_id: int
+    node_id: str
+    role: str
+    error_message: str
+    recovery_suggestion: str
+    updated_at: str
+
+
+class WorkflowProjectMemorySchema(BaseModel):
+    """项目级记忆响应模型，描述对话级共享长期上下文"""
+
+    memory_path: str
+    latest_goal: str
+    active_constraints: list[str]
+    key_points: list[str]
+    artifacts: list[str]
+    workflow_count: int
+    latest_error: WorkflowProjectMemoryErrorSchema | None = None
+    updated_at: str
+
+
 class WorkflowRunSchema(BaseModel):
     """工作流运行状态模型，描述当前轮次与断点控制信息"""
 
@@ -120,6 +144,7 @@ class WorkflowPreviewResponseSchema(BaseModel):
     dag: WorkflowDagSchema
     execution_logs: list[WorkflowExecutionLogSchema]
     workspace: WorkflowWorkspaceStateSchema
+    project_memory: WorkflowProjectMemorySchema
     handoff_logs: list[WorkflowHandoffSchema]
     workflow_run: WorkflowRunSchema
     error_report: WorkflowErrorReportSchema | None = None

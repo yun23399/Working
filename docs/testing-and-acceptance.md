@@ -25,6 +25,7 @@
 17. 共享工作区链路可用
 18. 断点控制链路可用
 19. 错误恢复与人工改向链路可用
+20. 项目级记忆链路可用
 
 ## 建议命令
 
@@ -174,6 +175,15 @@ python -m playwright install chromium
 - 修正失败节点配置后，`POST /api/workflows/{conversation_id}/{workflow_id}/control` 发送 `redirect` 可重新执行失败节点
 - 实测通过：`waiting_confirm + error_report -> redirect -> completed`
 
+### 用例 13：阶段二项目级记忆链路
+
+验证结果：
+
+- `POST /api/workflows/{conversation_id}/preview` 后即可返回 `project_memory`
+- 同一对话目录下会生成 `workspace/projects/conversation_<id>/project_memory.json`
+- 工作流执行完成后，`project_memory.key_points` 会追加节点摘要
+- `GET /api/workflows/{conversation_id}` 返回的 `project_memory` 可反映最新长期目标、关键记忆与最近异常
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -205,4 +215,5 @@ httpx.AsyncClient(trust_env=False)
 5. 工作流预览是否仍可生成与确认
 6. 工作流执行是否仍可启动并完成
 7. 错误恢复等待态是否仍可通过 `resume / redirect` 继续推进
-8. 文档是否仍与实现一致
+8. 项目级记忆文件与响应字段是否仍可更新
+9. 文档是否仍与实现一致

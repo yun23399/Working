@@ -66,6 +66,28 @@ export interface WorkflowWorkspaceState {
   pause_after_nodes: string[]
 }
 
+// 项目级记忆中的最近错误摘要
+export interface WorkflowProjectMemoryError {
+  workflow_id: number
+  node_id: string
+  role: string
+  error_message: string
+  recovery_suggestion: string
+  updated_at: string
+}
+
+// 项目级记忆类型
+export interface WorkflowProjectMemory {
+  memory_path: string
+  latest_goal: string
+  active_constraints: string[]
+  key_points: string[]
+  artifacts: string[]
+  workflow_count: number
+  latest_error: WorkflowProjectMemoryError | null
+  updated_at: string
+}
+
 // 工作流运行状态类型
 export interface WorkflowRunState {
   run_id: number | null
@@ -102,6 +124,7 @@ export interface WorkflowPreview {
   dag: WorkflowDag
   execution_logs: WorkflowExecutionLog[]
   workspace: WorkflowWorkspaceState
+  project_memory: WorkflowProjectMemory
   handoff_logs: WorkflowHandoffLog[]
   workflow_run: WorkflowRunState
   error_report: WorkflowErrorReport | null

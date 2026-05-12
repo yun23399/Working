@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, object_session
 from app.core.manager.manager_agent import ManagerConversationMessage
 from app.core.manager.requirement_extractor import RequirementExtractor
 from app.core.manager.workflow_planner import WorkflowPlanner
+from app.core.memory.project_memory import ProjectMemoryManager
 from app.models.conversation import Conversation
 from app.models.workflow import Workflow
 from app.schemas.workflow import (
@@ -20,6 +21,8 @@ from app.schemas.workflow import (
     WorkflowHandoffSchema,
     WorkflowNodeSchema,
     WorkflowPreviewResponseSchema,
+    WorkflowProjectMemoryErrorSchema,
+    WorkflowProjectMemorySchema,
     WorkflowRunSchema,
     WorkflowWorkspaceStateSchema,
 )
@@ -97,6 +100,10 @@ def create_workflow_preview(
         pause_after_nodes=pause_after_nodes or [],
     )
     workflow.workspace_path = str(workspace_dir)
+    ProjectMemoryManager(workflow).register_requirement(
+        goal=requirement.goal,
+        constraints=requirement.constraints,
+    )
     db.add(workflow)
     db.commit()
     db.refresh(workflow)
@@ -193,6 +200,7 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
         execution_log_payload,
     )
     workspace_manager = WorkflowWorkspace(workflow)
+    project_memory_manager = ProjectMemoryManager(workflow)
     checkpoint_controller = WorkflowCheckpointController()
     workspace_state_payload = (
         json.loads(workflow.workspace_state_json)
@@ -218,6 +226,8 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
         else {}
     )
     error_report_payload = checkpoint_payload.get("error_report")
+    project_memory_payload = project_memory_manager.build_response_payload()
+    latest_memory_error = project_memory_payload.get("latest_error")
 
     return WorkflowPreviewResponseSchema(
         workflow_id=workflow.id,
@@ -246,6 +256,20 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
             artifacts=workspace_state_payload.get("artifacts", []),
             updated_at=workspace_state_payload.get("updated_at", ""),
             pause_after_nodes=workspace_state_payload.get("pause_after_nodes", []),
+        ),
+        project_memory=WorkflowProjectMemorySchema(
+            memory_path=project_memory_payload.get("memory_path", ""),
+            latest_goal=project_memory_payload.get("latest_goal", ""),
+            active_constraints=project_memory_payload.get("active_constraints", []),
+            key_points=project_memory_payload.get("key_points", []),
+            artifacts=project_memory_payload.get("artifacts", []),
+            workflow_count=project_memory_payload.get("workflow_count", 0),
+            latest_error=(
+                WorkflowProjectMemoryErrorSchema(**latest_memory_error)
+                if isinstance(latest_memory_error, dict)
+                else None
+            ),
+            updated_at=project_memory_payload.get("updated_at", ""),
         ),
         handoff_logs=[WorkflowHandoffSchema(**item) for item in handoff_log_payload],
         workflow_run=WorkflowRunSchema(

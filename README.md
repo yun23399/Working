@@ -32,7 +32,7 @@
 
 当前下一步目标：
 
-1. 扩展更细粒度的失败策略、项目级记忆与工具执行上下文
+1. 扩展更细粒度的失败策略、工具执行上下文与真实产出物沉淀
 2. 扩展真实工具调用与产出物展示
 3. 引入项目级记忆与更细粒度的执行恢复能力
 
@@ -107,6 +107,7 @@ docs/       接口、流程、部署、前端规格文档
 
 - `workspace/`：工作流共享工作区根目录
 - `workspace/projects/conversation_<id>/workflow_<id>/`：单条工作流的运行目录
+- `workspace/projects/conversation_<id>/project_memory.json`：同一对话下共享的项目级记忆文件
 - `context/workspace_state.json`：当前工作区状态快照
 - `context/handoff_log.json`：节点间交接记录
 - `workflow_runs`：工作流运行快照、控制信号与断点状态表
