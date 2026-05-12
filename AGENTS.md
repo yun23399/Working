@@ -116,6 +116,7 @@ const useWebSocket = (conversationId: string) => {
 - `main`：稳定版本，只接受来自 `dev` 的合并
 - `dev`：开发分支，所有功能在此开发
 - 不允许直接推送到 `main`
+- 每次执行完成后，必须将本次成果推送到 GitHub 仓库 `https://github.com/yun23399/Working`，默认推送当前开发分支（通常为 `dev`）
 
 ### Commit 消息格式（Gitmoji）
 ```
