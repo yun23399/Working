@@ -1,7 +1,7 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-12
-> 更新者：Codex（会话 #3）
+> 更新者：Codex（会话 #4）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
@@ -133,6 +133,7 @@
 - ✅ UI 演示稿 — 2026-05-12 | multi_agent_platform_ui_demo.html
 - ✅ 项目基础文档体系 — 2026-05-12 | README、API、WebSocket、产品流程、测试与部署文档
 - ✅ GitHub 基础文件与本地 Git 基线 — 2026-05-12 | .env.example、.gitignore、GitHub Actions、git init、dev 分支
+- ✅ GitHub 远程备份 — 2026-05-12 | 已连接 `https://github.com/yun23399/Working.git` 并推送到 `origin/dev`
 
 ---
 
@@ -201,6 +202,23 @@
   2. 落地 `backend/` 真实骨架
   3. 提交本地初始 commit，并准备绑定 GitHub 远程
 
+### 2026-05-12 会话 #4
+- 执行内容：连接 GitHub 空仓库并完成首次推送
+- 远程仓库：`https://github.com/yun23399/Working.git`
+- 本次 Git 操作：
+  1. 配置本地 Git 身份
+  2. 添加 `origin`
+  3. 初始提交：`6ba25d0` `📝 docs: 初始化项目文档与 Git 基线`
+  4. 推送分支：`dev -> origin/dev`
+- 验证结果：
+  1. 当前分支为 `dev`
+  2. `origin/dev` 已建立跟踪关系
+  3. GitHub 已返回 PR 创建链接
+- 下次优先：
+  1. 创建 `frontend/` 真实工程
+  2. 创建 `backend/` 真实工程
+  3. 每个阶段性结果继续推送到 `origin/dev`
+
 ---
 
 ## 已知问题 / 待决定事项
@@ -210,5 +228,5 @@
 | #001 | 当前仓库缺少前后端真实代码目录，与旧进度记录不一致 | ⚠️ 阻塞中 | 高 |
 | #002 | `files.zip` 不包含前后端工程代码，仅包含文档文件 | ⚠️ 已确认 | 高 |
 | #003 | 阶段一必须先完成状态对齐与依赖验证，认证 / 对话 / LLM 才能继续推进 | ⏳ 待执行 | 高 |
-| #004 | 当前仓库尚未配置 GitHub 远程仓库，暂时不能执行 push | ⏳ 待处理 | 高 |
+| #004 | 当前仓库尚未落地 `frontend/` 与 `backend/` 实体工程，GitHub 上仍只有文档与基线文件 | ⚠️ 待处理 | 高 |
 | #005 | 本机未发现 `gh`，若后续需要 CLI 创建仓库或发 PR，需先安装并登录 GitHub CLI | ⏳ 待处理 | 中 |
