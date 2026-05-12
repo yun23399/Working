@@ -31,6 +31,10 @@
 OPENAI_API_KEY=
 ANTHROPIC_API_KEY=
 OLLAMA_BASE_URL=http://localhost:11434
+IMAGE_MODEL=gpt-image-1
+IMAGE_SIZE=1024x1024
+IMAGE_QUALITY=medium
+IMAGE_TIMEOUT_SECONDS=60
 LLM_PROVIDER=auto
 LLM_MODEL=
 LLM_TIMEOUT_SECONDS=60
@@ -52,6 +56,8 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 
 - `FRONTEND_APP_URL` 用于后端工作流中的 `browser_tool` 访问前端页面并生成截图
 - 若前端不跑在 `5173`，需要同步更新 `FRONTEND_APP_URL` 与 `VITE_API_BASE_URL`
+- `OPENAI_API_KEY` 已配置时，`image_tool` 会调用 OpenAI 图像接口；未配置时会回退到本地占位图渲染链路
+- `IMAGE_MODEL`、`IMAGE_SIZE`、`IMAGE_QUALITY`、`IMAGE_TIMEOUT_SECONDS` 用于控制图像工具的默认生成参数
 
 ## 4. 本地启动建议
 

@@ -26,10 +26,13 @@
 - 后端模板命中 `api_caller` 时会在共享工作区 `artifacts/` 生成真实接口响应文件
 - 新增最小浏览器自动化工具 `browser_tool.py`
 - 前端与测试模板命中 `browser_tool` 时会在共享工作区 `artifacts/` 生成真实截图和浏览器结果文件
+- 新增最小图像工具 `image_tool.py`
+- 设计师模板命中 `image_tool` 时会在共享工作区 `artifacts/` 生成真实设计图片和图像结果文件
 - `backend` / `frontend` 模板命中 `code_executor` 时会在共享工作区 `artifacts/` 生成真实计划文件
 - `workspace.artifacts` 与节点 `execution_logs[].artifacts` 已支持返回真实产物路径
 - 修复 Windows 下代码执行工具在 `uvicorn --reload` 环境中的子进程兼容问题
 - 修复 Windows 下浏览器工具在 `uvicorn --reload` 环境中的 Playwright 子进程兼容问题
+- 新增图像工具在缺少 `OPENAI_API_KEY` 时的本地占位图回退链路，保证阶段三回归可执行
 
 ### 前端能力
 

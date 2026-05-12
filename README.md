@@ -43,12 +43,13 @@
 8. 后端或前端模板命中 `code_executor` 时，会在共享工作区真实生成计划产物
 9. 当前接口返回的 `workspace.artifacts` 会同步包含执行结果文件和真实业务产物
 10. 前端与测试模板命中 `browser_tool` 时，会在共享工作区真实生成页面截图和浏览器访问元数据
+11. 设计师模板命中 `image_tool` 时，会在共享工作区真实生成设计概念图和图像结果元数据
 
 当前下一步目标：
 
-1. 继续扩展 `image_tool` 等后续工具能力
-2. 补齐前端产出物预览组件与导出链路
-3. 继续增强工具执行上下文、权限边界与验收展示
+1. 补齐前端产出物预览组件与导出链路
+2. 继续增强工具执行上下文、权限边界与验收展示
+3. 在具备有效图像模型 Key 的环境下补充真实 AI 出图回归
 
 ## 技术栈
 
@@ -128,6 +129,8 @@ docs/       接口、流程、部署、前端规格文档
 - `artifacts/backend_plan.json` / `artifacts/frontend_plan.json`：当前最小工具链路生成的计划产物
 - `artifacts/frontend_snapshot.png` / `artifacts/qa_snapshot.png`：浏览器工具生成的页面截图
 - `artifacts/frontend_browser_result.json` / `artifacts/qa_browser_result.json`：浏览器工具记录的访问结果元数据
+- `artifacts/design_mockup.png`：图像工具生成的设计概念图或本地占位图
+- `artifacts/design_image_result.json`：图像工具记录的生成来源、提示词和输出参数
 - `context/workspace_state.json`：当前工作区状态快照
 - `context/handoff_log.json`：节点间交接记录
 - `workflow_runs`：工作流运行快照、控制信号与断点状态表
@@ -163,3 +166,4 @@ docs/       接口、流程、部署、前端规格文档
 
 - `LLM_PROVIDER=auto` 时，后端会优先使用已配置的云模型 Key，否则回退到本地 Ollama
 - `LLM_MODEL` 留空时，会按当前提供商选择默认模型
+- `OPENAI_API_KEY` 已配置时，`image_tool` 会优先调用 OpenAI 图像接口；未配置时会回退到本地占位图渲染链路

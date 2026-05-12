@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     anthropic_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434"
+    image_model: str = "gpt-image-1"
+    image_size: str = "1024x1024"
+    image_quality: str = "medium"
+    image_timeout_seconds: int = 60
     llm_provider: str = "auto"
     llm_model: str = ""
     llm_timeout_seconds: int = 60

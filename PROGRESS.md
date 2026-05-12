@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #23）
+> 更新者：Codex（会话 #24）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段三：工具集接入（已完成 code_executor / file_tool / api_caller / browser_tool 最小真实链路，阶段二能力已全部打通）**
+**⏳ 阶段三：工具集接入（已完成 code_executor / file_tool / api_caller / browser_tool / image_tool 最小真实链路，阶段二能力已全部打通）**
 
 ---
 
@@ -18,7 +18,7 @@
 |------|------|------|
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
 | 阶段二：工作流引擎 | ✅ 已完成 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新、模板、共享工作区、断点、错误恢复与项目级记忆链路 |
-| 阶段三：工具集接入 | ⏳ 进行中 | 已完成代码执行工具最小真实链路 |
+| 阶段三：工具集接入 | ⏳ 进行中 | 已完成代码、文件、API、浏览器、图像工具最小真实链路 |
 | 阶段四：完善体验 | ⏳ 待开始 | 依赖阶段三完成 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
 
@@ -108,7 +108,7 @@
 - [x] 文件读写工具（file_tool.py）
 - [x] 外部 API 调用工具（api_caller.py）
 - [x] Playwright 浏览器自动化工具（browser_tool.py）
-- [ ] 图像生成工具（image_tool.py）
+- [x] 图像生成工具（image_tool.py）
 - [ ] 代码预览组件（CodePreview.tsx）
 - [ ] 图片预览组件（ImagePreview.tsx）
 - [ ] 文档预览组件（DocumentPreview.tsx）
@@ -159,6 +159,7 @@
 - ✅ 阶段三文件读写工具链路 — 2026-05-13 | 工作流已支持在共享工作区安全写入文本摘要，并将 `.md` 产物回传到执行结果
 - ✅ 阶段三外部 API 调用工具链路 — 2026-05-13 | 工作流已支持受限 HTTP 调用、响应落盘与 `api_response.json` 产物回传
 - ✅ 阶段三浏览器自动化工具链路 — 2026-05-13 | 工作流已支持受限页面访问、截图落盘与 `browser_result.json` / `snapshot.png` 产物回传
+- ✅ 阶段三图像生成工具链路 — 2026-05-13 | 工作流已支持真实设计图落盘与 `design_image_result.json` 元数据回传，缺少 Key 时可回退本地占位图链路
 
 ---
 
@@ -570,6 +571,24 @@
   3. Agent 级实测通过：`workspace/manual_agent_browser_subprocess_test/artifacts/` 已生成浏览器截图、元数据、摘要和执行结果文件
   4. API 实测通过：`conversation_48 / workflow_47` 执行完成后，`workspace.artifacts` 返回 `frontend_snapshot.png`、`frontend_browser_result.json`、`qa_snapshot.png` 与 `qa_browser_result.json`
   5. API 实测通过：`frontend_browser_result.json` 与 `qa_browser_result.json` 已落盘，并包含页面标题 `AgentFlow` 与状态码 `200`
+
+### 2026-05-13 会话 #24
+- 执行内容：完成阶段三 `image_tool` 最小真实链路
+- 新增后端文件：
+  1. `backend/app/tools/image_tool.py`
+- 关键改造：
+  1. `backend/app/tools/__init__.py` 新增 `ImageTool` 与 `ImageToolError` 导出
+  2. `backend/app/agents/templates/role_templates.py` 为设计师模板接入 `image_tool`
+  3. `backend/app/agents/agent_runner.py` 接入 `ImageTool`，并为设计师节点生成设计概念图指令
+  4. `backend/app/config.py` 新增 `image_model`、`image_size`、`image_quality`、`image_timeout_seconds` 配置项
+  5. `image_tool.py` 在配置 `OPENAI_API_KEY` 时可走 OpenAI 图像接口，在未配置时回退到基于 Playwright 的本地占位图渲染链路，保证当前环境可完成真实回归
+  6. 统一修正 `agent_runner.py` 内多个工具的角色命名映射逻辑，优先以 `task.role` 作为产物命名依据
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. 工具级实测通过：`workspace/manual_image_tool_test/artifacts/` 已生成 `manual_design_mockup.png` 与 `manual_design_result.json`
+  3. Agent 级实测通过：设计师模板可生成真实图片产物与元数据文件
+  4. API 实测通过：`conversation_50 / workflow_48` 执行完成后，`workspace.artifacts` 返回 `design_brief.md`、`design_mockup.png` 与 `design_image_result.json`
+  5. API 实测通过：`design_image_result.json` 已落盘，并记录当前环境使用 `local_placeholder_renderer` 回退链路
 
 ---
 

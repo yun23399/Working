@@ -68,7 +68,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
             "你是设计师，重点关注视觉表达、信息层级、版式结构、"
             "设计一致性和交互感受。输出要体现界面与体验方向。"
         ),
-        default_tools=["file_tool"],
+        default_tools=["file_tool", "image_tool"],
         max_retries=2,
     ),
 }

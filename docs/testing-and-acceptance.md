@@ -30,6 +30,7 @@
 22. 文件工具与真实文本产物回传链路可用
 23. 外部 API 工具与真实响应产物回传链路可用
 24. 浏览器工具与真实截图/页面元数据回传链路可用
+25. 图像工具与真实图片/图像元数据回传链路可用
 
 ## 建议命令
 
@@ -244,6 +245,20 @@ python -m playwright install chromium
   `workspace/projects/conversation_48/workflow_47/artifacts/`
 - `frontend_browser_result.json` 与 `qa_browser_result.json` 内包含访问地址、页面标题 `AgentFlow` 与状态码 `200`
 
+### 用例 18：阶段三图像工具链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- 2026-05-13 工具级实测通过：`ImageTool.execute()` 可生成 `manual_design_mockup.png` 与 `manual_design_result.json`
+- 2026-05-13 Agent 级实测通过：设计师模板可回传图片产物与图像结果文件
+- 2026-05-13 工作流级实测通过：`conversation_50 / workflow_48` 执行完成后，`workspace.artifacts` 返回
+  `design_brief.md`、`design_mockup.png` 与 `design_image_result.json`
+- 真实文件已落盘到
+  `workspace/projects/conversation_50/workflow_48/artifacts/`
+- 当前环境未配置 `OPENAI_API_KEY`，因此 `design_image_result.json` 记录为 `local_placeholder_renderer` 回退路径，用于保证链路可验证
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -280,4 +295,5 @@ httpx.AsyncClient(trust_env=False)
 10. `file_tool` 生成的 `.md` 产物是否仍能进入节点 artifacts
 11. `api_caller` 生成的 `api_response.json` 是否仍能进入节点 artifacts
 12. `browser_tool` 生成的截图与元数据是否仍能进入节点 artifacts
-13. 文档是否仍与实现一致
+13. `image_tool` 生成的图片与元数据是否仍能进入节点 artifacts
+14. 文档是否仍与实现一致

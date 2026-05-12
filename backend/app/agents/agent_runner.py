@@ -16,6 +16,8 @@ from app.tools import (
     CodeExecutorTool,
     FileTool,
     FileToolError,
+    ImageTool,
+    ImageToolError,
 )
 
 
@@ -37,6 +39,7 @@ class GenericTaskAgent(BaseAgent):
         self.api_caller = ApiCallerTool()
         self.browser_tool = BrowserTool()
         self.file_tool = FileTool()
+        self.image_tool = ImageTool()
         self.code_executor = CodeExecutorTool()
 
     def build_messages(self, task: AgentTask) -> list[ChatMessage]:
@@ -71,7 +74,7 @@ class GenericTaskAgent(BaseAgent):
         """根据当前节点角色生成最小受限代码执行命令"""
 
         workspace_dir = Path(task.workspace_path)
-        if self.role == "前端工程师":
+        if task.role == "前端工程师":
             target_path = workspace_dir / "artifacts" / "frontend_plan.json"
             return (
                 "python -c "
@@ -109,11 +112,11 @@ class GenericTaskAgent(BaseAgent):
             "设计师": "design_brief.md",
         }
         file_name = file_name_map.get(
-            self.role,
+            task.role,
             f"{self.template.template_id}_summary.md",
         )
         rendered_content = (
-            f"# {self.role} 交付摘要\n\n"
+            f"# {task.role} 交付摘要\n\n"
             f"- 工作流节点：{task.node_id}\n"
             f"- 模板编号：{self.template.template_id}\n"
             f"- 任务描述：{task.task}\n\n"
@@ -165,12 +168,45 @@ class GenericTaskAgent(BaseAgent):
                 ],
                 "wait_selector": "",
                 "screenshot_name": screenshot_name_map.get(
-                    self.role,
+                    task.role,
                     "browser_snapshot.png",
                 ),
                 "metadata_name": metadata_name_map.get(
-                    self.role,
+                    task.role,
                     "browser_result.json",
+                ),
+            },
+            ensure_ascii=False,
+        )
+
+    def build_image_tool_instruction(self, task: AgentTask, content: str) -> str:
+        """根据当前节点构造图像生成指令，用于沉淀设计草图或占位图"""
+
+        output_name_map = {
+            "设计师": "design_mockup.png",
+        }
+        metadata_name_map = {
+            "设计师": "design_image_result.json",
+        }
+        prompt = (
+            f"请根据以下设计摘要生成一张风格板或界面概念图：\n"
+            f"角色：{task.role}\n"
+            f"任务：{task.task}\n"
+            f"摘要：{content[:800] or '暂无摘要'}"
+        )
+        return json.dumps(
+            {
+                "action": "generate",
+                "prompt": prompt,
+                "size": settings.image_size,
+                "quality": settings.image_quality,
+                "output_name": output_name_map.get(
+                    task.role,
+                    "generated_image.png",
+                ),
+                "metadata_name": metadata_name_map.get(
+                    task.role,
+                    "generated_image_result.json",
                 ),
             },
             ensure_ascii=False,
@@ -217,6 +253,17 @@ class GenericTaskAgent(BaseAgent):
                 content = f"{content}\n\n页面校验：{tool_result.summary}"
             except BrowserToolError as exc:
                 content = f"{content}\n\n页面校验失败：{exc}"
+
+        if "image_tool" in self.template.default_tools:
+            try:
+                tool_result = await self.image_tool.execute(
+                    workspace_path=task.workspace_path,
+                    instruction=self.build_image_tool_instruction(task, content),
+                )
+                artifacts.extend(tool_result.artifacts)
+                content = f"{content}\n\n图像产出：{tool_result.summary}"
+            except ImageToolError as exc:
+                content = f"{content}\n\n图像产出失败：{exc}"
 
         if "code_executor" in self.template.default_tools:
             try:
