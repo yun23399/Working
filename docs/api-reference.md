@@ -315,6 +315,7 @@ Authorization: Bearer <access_token>
       "redirect_instruction": "",
       "saved_at": null
     },
+    "error_report": null,
     "created_at": "2026-05-12T20:04:37Z",
     "updated_at": "2026-05-12T20:04:37Z"
   }
@@ -417,6 +418,7 @@ Authorization: Bearer <access_token>
       "redirect_instruction": "",
       "saved_at": null
     },
+    "error_report": null,
   "created_at": "2026-05-12T20:04:37Z",
   "updated_at": "2026-05-12T20:04:37Z"
 }
@@ -431,6 +433,7 @@ Authorization: Bearer <access_token>
 - 节点同时返回 `template_id`，用于标识当前角色使用的预置模板
 - 当前阶段会同时返回共享工作区 `workspace` 状态和节点交接记录 `handoff_logs`
 - 当前阶段会返回 `workflow_run`，用于展示运行轮次与断点状态
+- 当工作流因节点失败进入人工恢复阶段时，会额外返回 `error_report`
 - 预览阶段默认所有节点为 `waiting`
 
 错误码：
@@ -497,6 +500,7 @@ Authorization: Bearer <access_token>
       "redirect_instruction": "",
       "saved_at": null
     },
+    "error_report": null,
   "created_at": "2026-05-12T20:04:37Z",
   "updated_at": "2026-05-12T20:04:40Z"
 }
@@ -568,6 +572,7 @@ Authorization: Bearer <access_token>
       "redirect_instruction": "",
       "saved_at": null
     },
+    "error_report": null,
   "created_at": "2026-05-12T23:13:39Z",
   "updated_at": "2026-05-12T23:13:39Z"
 }
@@ -575,7 +580,7 @@ Authorization: Bearer <access_token>
 
 说明：
 
-- 当前版本只支持最小串行执行，不支持并发节点和断点恢复
+- 当前版本只支持最小串行执行，不支持并发节点
 - 执行过程通过 WebSocket `workflow_update` 和 `log` 事件回推到前端
 - 前端在节点完成、失败和终态时会自动回拉工作流与消息历史，补齐 `execution_logs` 与节点摘要消息
 - 当前节点会按 `template_id` 绑定预置角色模板，执行提示词和默认工具由模板提供
@@ -583,6 +588,8 @@ Authorization: Bearer <access_token>
 - 每条工作流会在仓库根目录 `workspace/projects/conversation_<id>/workflow_<id>/` 创建共享工作区
 - 节点间交接会写入 `handoff_logs` 与 `context/handoff_log.json`
 - 若命中 `pause_after_nodes` 指定节点，工作流会进入 `waiting_confirm`，同时保存 `workflow_runs.checkpoint_json`
+- 节点失败时会按 `max_retries` 自动重试；超过次数后回滚到最近安全快照，并以 `waiting_confirm + error_report` 形式等待人工恢复
+- 人工修正后可通过 `redirect` 或 `resume` 重新执行失败节点；成功恢复后 `error_report` 会清空
 - 执行完成后，`status` 会更新为 `completed`，并回写 `progress` 与 `execution_logs`
 
 错误码：
@@ -596,8 +603,6 @@ Authorization: Bearer <access_token>
 - `EXECUTE_WORKFLOW_FAILED`
 
 ---
-
-## 5. 当前未实现但已规划的接口
 
 ### POST /api/workflows/{conversation_id}/{workflow_id}/control
 
@@ -619,11 +624,43 @@ Authorization: Bearer <access_token>
 - `abort`
 - `redirect`
 
+成功响应：
+
+```json
+{
+  "workflow_id": 25,
+  "status": "waiting_confirm",
+  "workflow_run": {
+    "run_id": 8,
+    "status": "waiting_confirm",
+    "control_signal": "none",
+    "checkpoint_node_id": "node_1",
+    "redirect_instruction": "",
+    "saved_at": "2026-05-13T01:35:00+00:00"
+  },
+  "error_report": {
+    "failed_node_id": "node_1",
+    "failed_role": "PM",
+    "task": "梳理需求并输出可交接摘要",
+    "error_message": "未知角色模板",
+    "retry_count": 3,
+    "max_retries": 2,
+    "can_retry": false,
+    "upstream_node_id": null,
+    "upstream_role": "Manager",
+    "rollback_checkpoint_node_id": "node_1",
+    "rollback_progress": 0,
+    "recovery_suggestion": "建议先修正节点配置，再通过 redirect 继续执行。"
+  }
+}
+```
+
 说明：
 
 - `redirect` 时必须提供非空 `redirect_instruction`
 - 工作流处于 `waiting_confirm` 时，推荐使用 `resume` 或 `redirect`
-- 当前控制结果会同步回 `workflow_run` 和 `workspace` 状态
+- 普通断点等待与错误恢复等待都会复用 `waiting_confirm`，可通过 `error_report` 是否为空区分
+- 当前控制结果会同步回 `workflow_run`、`workspace` 和最近一次运行快照
 
 错误码：
 

@@ -15,6 +15,7 @@ from app.models.workflow import Workflow
 from app.services.conversation_service import save_agent_message
 from app.workflow.agent_spawner import AgentSpawner
 from app.workflow.checkpoint import WorkflowCheckpointController
+from app.workflow.error_handler import WorkflowErrorHandler
 from app.workflow.workspace import WorkflowWorkspace
 
 
@@ -30,6 +31,7 @@ class DagOrchestrator:
 
         self.agent_spawner = agent_spawner or AgentSpawner()
         self.checkpoint_controller = WorkflowCheckpointController()
+        self.error_handler = WorkflowErrorHandler(self.checkpoint_controller)
 
     def deserialize_dag(self, workflow: Workflow) -> WorkflowDag:
         """将持久化的 DAG JSON 反序列化为运行时对象"""
@@ -63,6 +65,21 @@ class DagOrchestrator:
             del pending_nodes[next_node.id]
 
         return ordered_nodes
+
+    def get_latest_node_snapshot(
+        self,
+        db: Session,
+        workflow: Workflow,
+        node_id: str,
+    ) -> WorkflowNode:
+        """在重试或人工改向后刷新当前节点定义，避免继续使用旧配置"""
+
+        db.refresh(workflow)
+        refreshed_dag = self.deserialize_dag(workflow)
+        for item in refreshed_dag.nodes:
+            if item.id == node_id:
+                return item
+        raise WorkflowExecutionError(f"工作流节点 `{node_id}` 不存在")
 
     def build_node_context(
         self,
@@ -204,88 +221,232 @@ class DagOrchestrator:
                 return workflow
 
             progress_before = int(((index - 1) / total_nodes) * 100)
-            await self.push_workflow_update(
-                workflow,
-                node.id,
-                "running",
-                progress_before / 100,
-            )
-            state = workspace.load_workspace_state()
-            workspace.save_workspace_state(
-                status=workflow.status,
-                progress=progress_before,
-                active_node_id=node.id,
-                artifacts=state.get("artifacts", []),
-            )
-            await self.push_log(
-                workflow,
-                "INFO",
-                f"{node.role} 开始执行：{node.task}",
-                node.id,
-            )
-
-            agent = self.agent_spawner.spawn(node)
-            task = AgentTask(
-                workflow_id=workflow.id,
-                conversation_id=workflow.conversation_id,
-                node_id=node.id,
-                role=node.role,
-                task=node.task,
-                context=self.build_node_context(
-                    workflow,
-                    conversation,
-                    execution_logs,
-                    workspace.get_context_snapshot(),
-                ),
-                workspace_path=str(workspace_dir),
-            )
-
-            try:
-                result = await agent.run(task)
-            except Exception as exc:
-                logger.exception(
-                    "工作流 {} 节点 {} 执行失败: {}",
-                    workflow.id,
-                    node.id,
-                    exc,
-                )
-                workflow.status = "failed"
-                failed_state = workspace.load_workspace_state()
-                workspace.save_workspace_state(
-                    status="failed",
-                    progress=workflow.progress,
-                    active_node_id=node.id,
-                    artifacts=failed_state.get("artifacts", []),
-                )
-                db.add(workflow)
-                db.commit()
-                db.refresh(workflow)
-                await self.push_log(
-                    workflow,
-                    "ERROR",
-                    f"{node.role} 执行失败：{exc}",
-                    node.id,
-                )
+            while True:
+                current_node = self.get_latest_node_snapshot(db, workflow, node.id)
                 await self.push_workflow_update(
                     workflow,
-                    node.id,
-                    "failed",
-                    workflow.progress / 100,
+                    current_node.id,
+                    "running",
+                    progress_before / 100,
                 )
-                self.checkpoint_controller.save_checkpoint(
-                    db,
+                state = workspace.load_workspace_state()
+                workspace.save_workspace_state(
+                    status=workflow.status,
+                    progress=progress_before,
+                    active_node_id=current_node.id,
+                    artifacts=state.get("artifacts", []),
+                    pause_after_nodes=state.get("pause_after_nodes", []),
+                )
+                await self.push_log(
                     workflow,
-                    latest_run,
-                    node_id=node.id,
-                    checkpoint_status="failed",
-                    execution_logs=execution_logs,
+                    "INFO",
+                    f"{current_node.role} 开始执行：{current_node.task}",
+                    current_node.id,
                 )
-                self.checkpoint_controller.finish_run(db, latest_run, "failed")
-                raise WorkflowExecutionError(str(exc)) from exc
+
+                try:
+                    agent = self.agent_spawner.spawn(current_node)
+                    task = AgentTask(
+                        workflow_id=workflow.id,
+                        conversation_id=workflow.conversation_id,
+                        node_id=current_node.id,
+                        role=current_node.role,
+                        task=current_node.task,
+                        context=self.build_node_context(
+                            workflow,
+                            conversation,
+                            execution_logs,
+                            workspace.get_context_snapshot(),
+                        ),
+                        workspace_path=str(workspace_dir),
+                    )
+                    result = await agent.run(task)
+                    break
+                except Exception as exc:
+                    logger.exception(
+                        "工作流 {} 节点 {} 执行失败: {}",
+                        workflow.id,
+                        current_node.id,
+                        exc,
+                    )
+                    decision = self.error_handler.handle_node_error(
+                        db,
+                        workflow,
+                        latest_run,
+                        dag,
+                        current_node,
+                        exc,
+                        execution_logs=execution_logs,
+                    )
+                    execution_logs = decision.execution_logs
+                    await self.push_log(
+                        workflow,
+                        "ERROR",
+                        decision.user_message,
+                        current_node.id,
+                    )
+                    self.checkpoint_controller.save_checkpoint(
+                        db,
+                        workflow,
+                        latest_run,
+                        node_id=current_node.id,
+                        checkpoint_status=decision.checkpoint_status,
+                        execution_logs=execution_logs,
+                        extra_payload={"error_report": decision.error_payload},
+                    )
+                    if decision.should_continue:
+                        await self.push_log(
+                            workflow,
+                            "WARNING",
+                            (
+                                f"{current_node.role} 即将开始第 "
+                                f"{decision.latest_retry_count + 1} 次尝试"
+                            ),
+                            "orchestrator",
+                        )
+                        latest_run = self.checkpoint_controller.require_latest_run(
+                            db, workflow.id
+                        )
+                        continue
+
+                    await self.push_workflow_update(
+                        workflow,
+                        current_node.id,
+                        "waiting_confirm",
+                        workflow.progress / 100,
+                    )
+                    await self.push_log(
+                        workflow,
+                        "WARNING",
+                        decision.error_payload["recovery_suggestion"],
+                        "orchestrator",
+                    )
+                    while True:
+                        waiting_run = self.checkpoint_controller.require_latest_run(
+                            db, workflow.id
+                        )
+                        waiting_signal = (
+                            self.checkpoint_controller.consume_control_signal(
+                                db, waiting_run
+                            )
+                        )
+                        if waiting_signal == "resume":
+                            workflow.status = "running"
+                            restored_state = workspace.load_workspace_state()
+                            workspace.save_workspace_state(
+                                status="running",
+                                progress=workflow.progress,
+                                active_node_id=current_node.id,
+                                artifacts=restored_state.get("artifacts", []),
+                                pause_after_nodes=restored_state.get(
+                                    "pause_after_nodes", []
+                                ),
+                            )
+                            db.add(workflow)
+                            db.commit()
+                            db.refresh(workflow)
+                            await self.push_log(
+                                workflow,
+                                "INFO",
+                                (
+                                    f"{current_node.role} 已收到恢复指令，"
+                                    "将从失败节点重新执行"
+                                ),
+                                "orchestrator",
+                            )
+                            await self.push_workflow_update(
+                                workflow,
+                                current_node.id,
+                                "running",
+                                workflow.progress / 100,
+                            )
+                            latest_run = self.checkpoint_controller.require_latest_run(
+                                db, workflow.id
+                            )
+                            break
+
+                        if waiting_signal == "redirect":
+                            redirect_instruction = (
+                                self.checkpoint_controller.get_redirect_instruction(
+                                    waiting_run
+                                )
+                            )
+                            restored_state = workspace.load_workspace_state()
+                            workspace.save_workspace_state(
+                                status="running",
+                                progress=workflow.progress,
+                                active_node_id=current_node.id,
+                                artifacts=restored_state.get("artifacts", []),
+                                pause_after_nodes=restored_state.get(
+                                    "pause_after_nodes", []
+                                ),
+                            )
+                            handoff_logs = workspace.load_handoffs()
+                            if handoff_logs:
+                                handoff_logs[-1]["summary"] = (
+                                    f"{handoff_logs[-1]['summary']}\n"
+                                    f"人工改向说明：{redirect_instruction}"
+                                )
+                                workspace.restore_handoffs(handoff_logs)
+                            workflow.status = "running"
+                            db.add(workflow)
+                            db.commit()
+                            db.refresh(workflow)
+                            await self.push_log(
+                                workflow,
+                                "INFO",
+                                "失败节点已收到人工改向说明，将重新执行当前节点",
+                                "orchestrator",
+                            )
+                            latest_run = self.checkpoint_controller.require_latest_run(
+                                db, workflow.id
+                            )
+                            break
+
+                        if waiting_signal == "abort":
+                            workflow.status = "failed"
+                            aborted_state = workspace.load_workspace_state()
+                            workspace.save_workspace_state(
+                                status="aborted",
+                                progress=workflow.progress,
+                                active_node_id=node.id,
+                                artifacts=aborted_state.get("artifacts", []),
+                                pause_after_nodes=aborted_state.get(
+                                    "pause_after_nodes", []
+                                ),
+                            )
+                            db.add(workflow)
+                            db.commit()
+                            db.refresh(workflow)
+                            self.checkpoint_controller.finish_run(
+                                db,
+                                waiting_run,
+                                "aborted",
+                            )
+                            await self.push_log(
+                                workflow,
+                                "WARNING",
+                                "工作流在错误恢复等待期间被中断",
+                                "orchestrator",
+                            )
+                            await self.push_workflow_update(
+                                workflow,
+                                current_node.id,
+                                "aborted",
+                                workflow.progress / 100,
+                            )
+                            return workflow
+
+                        await asyncio.sleep(0.5)
+
+                    latest_run = self.checkpoint_controller.require_latest_run(
+                        db, workflow.id
+                    )
+                    continue
 
             execution_log = {
-                "node_id": node.id,
-                "role": node.role,
+                "node_id": current_node.id,
+                "role": current_node.role,
                 "summary": result.summary,
                 "status": "done",
                 "artifacts": result.artifacts,
@@ -296,7 +457,7 @@ class DagOrchestrator:
             current_state = workspace.load_workspace_state()
             artifacts = [*current_state.get("artifacts", []), *result.artifacts]
             workspace.append_handoff(
-                from_agent=node.id,
+                from_agent=current_node.id,
                 to_agent=ordered_nodes[index].id if index < total_nodes else "workflow",
                 summary=result.summary,
                 artifacts=result.artifacts,
@@ -306,6 +467,7 @@ class DagOrchestrator:
                 progress=workflow.progress,
                 active_node_id=None,
                 artifacts=artifacts,
+                pause_after_nodes=current_state.get("pause_after_nodes", []),
             )
             db.add(workflow)
             db.commit()
@@ -314,19 +476,19 @@ class DagOrchestrator:
             save_agent_message(
                 db,
                 workflow.conversation_id,
-                f"[{node.role}] {result.summary}",
+                f"[{current_node.role}] {result.summary}",
                 result.token_count,
             )
 
             await self.push_log(
                 workflow,
                 "INFO",
-                f"{node.role} 已完成，结果已写入对话历史",
-                node.id,
+                f"{current_node.role} 已完成，结果已写入对话历史",
+                current_node.id,
             )
             await self.push_workflow_update(
                 workflow,
-                node.id,
+                current_node.id,
                 "done",
                 workflow.progress / 100,
             )
@@ -336,7 +498,7 @@ class DagOrchestrator:
                 db,
                 workflow,
                 updated_run,
-                node_id=node.id,
+                node_id=current_node.id,
                 checkpoint_status="running",
                 execution_logs=execution_logs,
             )
@@ -344,13 +506,14 @@ class DagOrchestrator:
             pause_targets = workspace.load_workspace_state().get(
                 "pause_after_nodes", []
             )
-            if node.id in pause_targets:
+            if current_node.id in pause_targets:
                 workflow.status = "waiting_confirm"
                 workspace.save_workspace_state(
                     status="waiting_confirm",
                     progress=workflow.progress,
-                    active_node_id=node.id,
+                    active_node_id=current_node.id,
                     artifacts=artifacts,
+                    pause_after_nodes=pause_targets,
                 )
                 db.add(workflow)
                 db.commit()
@@ -362,19 +525,22 @@ class DagOrchestrator:
                     db,
                     workflow,
                     paused_run,
-                    node_id=node.id,
+                    node_id=current_node.id,
                     checkpoint_status="waiting_confirm",
                     execution_logs=execution_logs,
                 )
                 await self.push_log(
                     workflow,
                     "INFO",
-                    f"{node.role} 已完成，工作流在节点 {node.id} 后进入断点等待",
+                    (
+                        f"{current_node.role} 已完成，工作流在节点 "
+                        f"{current_node.id} 后进入断点等待"
+                    ),
                     "orchestrator",
                 )
                 await self.push_workflow_update(
                     workflow,
-                    node.id,
+                    current_node.id,
                     "waiting_confirm",
                     workflow.progress / 100,
                 )
@@ -393,6 +559,7 @@ class DagOrchestrator:
                             progress=workflow.progress,
                             active_node_id=None,
                             artifacts=artifacts,
+                            pause_after_nodes=pause_targets,
                         )
                         db.add(workflow)
                         db.commit()
@@ -405,7 +572,7 @@ class DagOrchestrator:
                         )
                         await self.push_workflow_update(
                             workflow,
-                            node.id,
+                            current_node.id,
                             "running",
                             workflow.progress / 100,
                         )
@@ -424,6 +591,9 @@ class DagOrchestrator:
                                 progress=workflow.progress,
                                 active_node_id=None,
                                 artifacts=workspace_state.get("artifacts", []),
+                                pause_after_nodes=workspace_state.get(
+                                    "pause_after_nodes", []
+                                ),
                             )
                             latest_handoffs = workspace.load_handoffs()
                             if latest_handoffs:
@@ -431,9 +601,7 @@ class DagOrchestrator:
                                     f"{latest_handoffs[-1]['summary']}\n"
                                     f"人工改向说明：{redirect_instruction}"
                                 )
-                                workflow.handoff_log_json = json.dumps(
-                                    latest_handoffs, ensure_ascii=False
-                                )
+                                workspace.restore_handoffs(latest_handoffs)
                             workflow.status = "running"
                             db.add(workflow)
                             db.commit()
@@ -451,8 +619,9 @@ class DagOrchestrator:
                         workspace.save_workspace_state(
                             status="aborted",
                             progress=workflow.progress,
-                            active_node_id=node.id,
+                            active_node_id=current_node.id,
                             artifacts=artifacts,
+                            pause_after_nodes=pause_targets,
                         )
                         db.add(workflow)
                         db.commit()
@@ -470,7 +639,7 @@ class DagOrchestrator:
                         )
                         await self.push_workflow_update(
                             workflow,
-                            node.id,
+                            current_node.id,
                             "aborted",
                             workflow.progress / 100,
                         )

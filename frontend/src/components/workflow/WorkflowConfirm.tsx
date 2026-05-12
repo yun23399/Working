@@ -113,6 +113,23 @@ function resolveStatusMeta(status: string): {
   }
 }
 
+// 生成等待确认状态下的辅助说明，区分普通断点与错误恢复
+function resolveWaitingDescription(workflow: WorkflowPreview): string | null {
+  if (workflow.status !== 'waiting_confirm') {
+    return null
+  }
+
+  if (workflow.error_report) {
+    return `当前节点 ${workflow.error_report.failed_node_id} 执行失败，已回滚到最近安全快照，等待人工恢复。`
+  }
+
+  if (workflow.workflow_run.checkpoint_node_id) {
+    return `当前工作流在节点 ${workflow.workflow_run.checkpoint_node_id} 后进入断点等待。`
+  }
+
+  return '当前工作流处于等待确认状态。'
+}
+
 // 工作流预览确认卡片，只负责展示结构化结果和操作入口
 export function WorkflowConfirm({
   workflow,
@@ -134,6 +151,7 @@ export function WorkflowConfirm({
   onRedirect,
 }: WorkflowConfirmProps) {
   const statusMeta = workflow ? resolveStatusMeta(workflow.status) : null
+  const waitingDescription = workflow ? resolveWaitingDescription(workflow) : null
   const emptyStateDescription = !hasConversation
     ? '先选择或创建一条对话，再基于当前上下文生成工作流预览。'
     : canGenerate
@@ -354,6 +372,37 @@ export function WorkflowConfirm({
                   运行状态：{workflow.workflow_run.status} / 控制信号：{workflow.workflow_run.control_signal}
                 </div>
               </div>
+              {waitingDescription ? (
+                <div className="mt-4 rounded-[18px] border border-[#e5d6a2] bg-[#fff8df] px-4 py-3 text-sm text-[#8a6500]">
+                  {waitingDescription}
+                </div>
+              ) : null}
+              {workflow.error_report ? (
+                <div className="mt-4 rounded-[20px] border border-[#e3c2bf] bg-[#fff5f4] px-4 py-4">
+                  <div className="text-xs uppercase tracking-[0.18em] text-[#9b4b46]">
+                    错误恢复建议
+                  </div>
+                  <div className="mt-3 text-sm leading-6 text-[#7c3f3a]">
+                    失败节点：{workflow.error_report.failed_role} · {workflow.error_report.failed_node_id}
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-[#7c3f3a]">
+                    错误原因：{workflow.error_report.error_message}
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-[#7c3f3a]">
+                    上级角色：{workflow.error_report.upstream_role}
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-[#7c3f3a]">
+                    已重试：{workflow.error_report.retry_count} / {workflow.error_report.max_retries}
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-[#7c3f3a]">
+                    回滚断点：{workflow.error_report.rollback_checkpoint_node_id ?? '初始状态'}，进度{' '}
+                    {workflow.error_report.rollback_progress}%
+                  </div>
+                  <div className="mt-3 rounded-2xl bg-white/80 px-3 py-3 text-sm leading-6 text-ink-soft">
+                    {workflow.error_report.recovery_suggestion ?? '当前暂无额外恢复建议。'}
+                  </div>
+                </div>
+              ) : null}
               <div className="mt-4">
                 <div className="text-xs uppercase tracking-[0.18em] text-ink-faint">约束</div>
                 <div className="mt-2 space-y-2">

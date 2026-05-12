@@ -92,6 +92,23 @@ class WorkflowRunSchema(BaseModel):
     saved_at: str | None
 
 
+class WorkflowErrorReportSchema(BaseModel):
+    """工作流错误报告模型，描述失败节点、回滚信息与恢复建议"""
+
+    failed_node_id: str
+    failed_role: str
+    task: str
+    error_message: str
+    retry_count: int
+    max_retries: int
+    can_retry: bool
+    upstream_node_id: str | None
+    upstream_role: str
+    rollback_checkpoint_node_id: str | None
+    rollback_progress: int
+    recovery_suggestion: str | None = None
+
+
 class WorkflowPreviewResponseSchema(BaseModel):
     """工作流预览响应模型，返回需求摘要和 DAG 结果"""
 
@@ -105,5 +122,6 @@ class WorkflowPreviewResponseSchema(BaseModel):
     workspace: WorkflowWorkspaceStateSchema
     handoff_logs: list[WorkflowHandoffSchema]
     workflow_run: WorkflowRunSchema
+    error_report: WorkflowErrorReportSchema | None = None
     created_at: datetime
     updated_at: datetime

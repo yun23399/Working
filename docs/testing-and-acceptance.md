@@ -24,6 +24,7 @@
 16. 工作流实时日志面板可用
 17. 共享工作区链路可用
 18. 断点控制链路可用
+19. 错误恢复与人工改向链路可用
 
 ## 建议命令
 
@@ -163,6 +164,16 @@ python -m playwright install chromium
 - `POST /api/workflows/{conversation_id}/{workflow_id}/control` 发送 `resume` 后，工作流可继续到 `completed`
 - `workflow_run.checkpoint_node_id` 与 `workflow_run.status` 可反映当前断点位置和运行状态
 
+### 用例 12：阶段二错误恢复链路
+
+验证结果：
+
+- 节点执行失败时会按 `max_retries` 自动重试
+- 超过最大重试次数后，工作流会进入 `waiting_confirm`
+- `GET /api/workflows/{conversation_id}` 返回的 `error_report` 可包含失败节点、错误原因、上级角色、回滚进度与恢复建议
+- 修正失败节点配置后，`POST /api/workflows/{conversation_id}/{workflow_id}/control` 发送 `redirect` 可重新执行失败节点
+- 实测通过：`waiting_confirm + error_report -> redirect -> completed`
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -193,4 +204,5 @@ httpx.AsyncClient(trust_env=False)
 4. Alembic 迁移是否仍可执行
 5. 工作流预览是否仍可生成与确认
 6. 工作流执行是否仍可启动并完成
-7. 文档是否仍与实现一致
+7. 错误恢复等待态是否仍可通过 `resume / redirect` 继续推进
+8. 文档是否仍与实现一致

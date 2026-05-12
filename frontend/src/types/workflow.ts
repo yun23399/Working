@@ -76,6 +76,22 @@ export interface WorkflowRunState {
   saved_at: string | null
 }
 
+// 工作流错误恢复报告类型
+export interface WorkflowErrorReport {
+  failed_node_id: string
+  failed_role: string
+  task: string
+  error_message: string
+  retry_count: number
+  max_retries: number
+  can_retry: boolean
+  upstream_node_id: string | null
+  upstream_role: string
+  rollback_checkpoint_node_id: string | null
+  rollback_progress: number
+  recovery_suggestion: string | null
+}
+
 // 工作流预览响应类型
 export interface WorkflowPreview {
   workflow_id: number
@@ -88,6 +104,7 @@ export interface WorkflowPreview {
   workspace: WorkflowWorkspaceState
   handoff_logs: WorkflowHandoffLog[]
   workflow_run: WorkflowRunState
+  error_report: WorkflowErrorReport | null
   created_at: string
   updated_at: string
 }

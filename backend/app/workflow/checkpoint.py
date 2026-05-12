@@ -19,6 +19,17 @@ class WorkflowRunNotFoundError(Exception):
 class WorkflowCheckpointController:
     """工作流断点控制器，维护运行快照和外部控制指令"""
 
+    def load_checkpoint_payload(self, workflow_run: WorkflowRun) -> dict[str, Any]:
+        """解析运行记录中的断点快照，避免上层重复处理 JSON 异常"""
+
+        if not workflow_run.checkpoint_json or workflow_run.checkpoint_json == "{}":
+            return {}
+
+        try:
+            return json.loads(workflow_run.checkpoint_json)
+        except json.JSONDecodeError:
+            return {}
+
     def get_latest_run(self, db: Session, workflow_id: int) -> WorkflowRun | None:
         """读取指定工作流最近一条运行记录"""
 
@@ -78,6 +89,7 @@ class WorkflowCheckpointController:
         node_id: str,
         checkpoint_status: str,
         execution_logs: list[dict[str, Any]],
+        extra_payload: dict[str, Any] | None = None,
     ) -> WorkflowRun:
         """保存当前工作流断点快照，并同步写回运行记录"""
 
@@ -94,6 +106,8 @@ class WorkflowCheckpointController:
             "handoff_logs": workspace.load_handoffs(),
             "saved_at": datetime.now(timezone.utc).isoformat(),
         }
+        if extra_payload:
+            checkpoint_payload.update(extra_payload)
         workflow_run.checkpoint_json = json.dumps(
             checkpoint_payload,
             ensure_ascii=False,

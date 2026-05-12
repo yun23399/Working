@@ -13,6 +13,9 @@
 - 新增断点控制器 `checkpoint.py`
 - 新增工作流控制接口 `/api/workflows/{conversation_id}/{workflow_id}/control`
 - 工作流已支持 `waiting_confirm` 断点等待、恢复执行与人工改向信号
+- 新增工作流错误处理器 `error_handler.py`
+- 工作流节点失败后已支持自动重试、快照回滚、层级上报与恢复建议
+- 工作流响应新增 `error_report`，前端卡片可直接展示错误恢复信息
 
 ### 前端能力
 

@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #17）
+> 更新者：Codex（会话 #18）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段二：工作流引擎（已完成最小工作流预览、执行刷新、预置角色模板、日志面板、共享工作区与断点控制链路）**
+**⏳ 阶段二：工作流引擎（已完成最小工作流预览、执行刷新、预置角色模板、日志面板、共享工作区、断点控制与错误恢复链路）**
 
 ---
 
@@ -96,7 +96,7 @@
 - [x] 预置角色模板（前端/后端/测试/PM/设计师）
 - [x] 共享工作区（workspace.py）
 - [x] 断点控制（checkpoint.py）
-- [ ] 错误处理与层级上报（error_handler.py）
+- [x] 错误处理与层级上报（error_handler.py）
 - [x] 工作流日志实时展示（LogViewer.tsx）
 - [ ] 项目级记忆（project_memory.py）
 
@@ -153,6 +153,7 @@
 - ✅ 阶段二工作流日志面板链路 — 2026-05-13 | 工作流编排日志已从聊天日志拆分为独立面板，并随 WebSocket 实时回显
 - ✅ 阶段二共享工作区链路 — 2026-05-13 | 工作流已具备根目录共享工作区、状态快照与节点交接记录能力
 - ✅ 阶段二断点控制链路 — 2026-05-13 | 工作流已支持运行快照、等待确认、恢复执行与控制接口
+- ✅ 阶段二错误恢复链路 — 2026-05-13 | 工作流已支持节点重试、失败回滚、层级上报、恢复建议与人工改向重跑
 
 ---
 
@@ -467,6 +468,22 @@
   2. `frontend`: `npm run lint`、`npm run build` 通过
   3. API 实测通过：`pause_after_nodes=['node_1']` 时工作流在首节点后进入 `waiting_confirm`
   4. API 实测通过：调用 `resume` 后工作流可继续执行至 `completed`
+
+### 2026-05-13 会话 #18
+- 执行内容：完成阶段二错误处理与层级上报链路
+- 新增后端文件：
+  1. `backend/app/workflow/error_handler.py`
+- 关键改造：
+  1. `dag_orchestrator.py` 接入节点失败自动重试、快照回滚与失败节点重跑
+  2. `checkpoint.py` 支持读取断点快照，并在快照中持久化 `error_report`
+  3. `workspace.py` 支持从最近安全快照恢复工作区状态与交接记录
+  4. `workflow_service.py` / 前端工作流类型响应新增 `error_report`
+  5. `WorkflowConfirm.tsx` 可直接展示失败节点、错误原因、上级角色与恢复建议
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. API 实测通过：构造错误节点后，工作流进入 `waiting_confirm`，并返回 `error_report`
+  4. API 实测通过：修正失败节点后调用 `redirect`，工作流可继续执行至 `completed`
 
 ---
 

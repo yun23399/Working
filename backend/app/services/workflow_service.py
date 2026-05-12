@@ -15,6 +15,7 @@ from app.models.workflow import Workflow
 from app.schemas.workflow import (
     RequirementSummarySchema,
     WorkflowDagSchema,
+    WorkflowErrorReportSchema,
     WorkflowExecutionLogSchema,
     WorkflowHandoffSchema,
     WorkflowNodeSchema,
@@ -216,6 +217,7 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
         )
         else {}
     )
+    error_report_payload = checkpoint_payload.get("error_report")
 
     return WorkflowPreviewResponseSchema(
         workflow_id=workflow.id,
@@ -253,6 +255,11 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
             checkpoint_node_id=checkpoint_payload.get("node_id"),
             redirect_instruction=latest_run.redirect_instruction if latest_run else "",
             saved_at=checkpoint_payload.get("saved_at"),
+        ),
+        error_report=(
+            WorkflowErrorReportSchema(**error_report_payload)
+            if isinstance(error_report_payload, dict)
+            else None
         ),
         created_at=workflow.created_at,
         updated_at=workflow.updated_at,

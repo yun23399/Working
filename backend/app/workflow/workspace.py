@@ -178,6 +178,32 @@ class WorkflowWorkspace:
         self.workflow.handoff_log_json = json.dumps(handoffs, ensure_ascii=False)
         return handoffs
 
+    def restore_workspace_state(self, state: dict[str, Any]) -> dict[str, Any]:
+        """将共享工作区状态恢复到指定快照，并同步回数据库字段"""
+
+        workspace_dir = self.ensure_workspace()
+        state_path = workspace_dir / "context" / "workspace_state.json"
+        state_path.write_text(
+            json.dumps(state, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        self.workflow.workspace_path = str(workspace_dir)
+        self.workflow.workspace_state_json = json.dumps(state, ensure_ascii=False)
+        return state
+
+    def restore_handoffs(self, handoffs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """将交接记录恢复到指定快照，便于错误回滚后继续协作"""
+
+        workspace_dir = self.ensure_workspace()
+        handoff_path = workspace_dir / "context" / "handoff_log.json"
+        handoff_path.write_text(
+            json.dumps(handoffs, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        self.workflow.workspace_path = str(workspace_dir)
+        self.workflow.handoff_log_json = json.dumps(handoffs, ensure_ascii=False)
+        return handoffs
+
     def get_context_snapshot(self) -> str:
         """将共享工作区状态与最近交接整理为文本，供执行 Agent 使用"""
 
