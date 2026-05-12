@@ -73,8 +73,9 @@ python -m playwright install chromium
 验证结果：
 
 - `POST /api/conversations/{id}/chat` 返回 `200`
-- 已接收到事件序列：`log -> agent_status -> log -> token -> ... -> agent_status(done)`
+- 已接收到事件序列：`agent_status(running) -> log -> token -> ... -> agent_status(done)`
 - assistant 最终消息已持久化
+- 当前回复由真实 Manager Agent 流式生成
 
 ### 用例 4：统一错误格式
 
@@ -91,6 +92,13 @@ python -m playwright install chromium
 - 可从注册模式成功进入聊天页
 - 聊天页可发送消息
 - 浏览器内可看到 Manager 流式回复
+
+### 用例 6：LLM 配置与提供商选择
+
+建议验证：
+
+- 设置 `LLM_PROVIDER=ollama` 且本地 Ollama 可用时，可正常获得流式回复
+- 设置 `LLM_PROVIDER=openai` 但未配置 `OPENAI_API_KEY` 时，前端应收到明确错误提示
 
 ## 本地验证注意事项
 

@@ -118,7 +118,7 @@ async def chat_with_manager(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ChatAcceptedSchema:
-    """接收用户消息并触发模拟流式回复，用于验证最小聊天闭环"""
+    """接收用户消息并触发 Manager 真实流式回复任务"""
 
     try:
         conversation = get_conversation_by_owner(db, conversation_id, current_user)
@@ -126,7 +126,6 @@ async def chat_with_manager(
         asyncio.create_task(
             stream_manager_reply(
                 conversation.id,
-                payload.content,
                 connection_manager.broadcast,
             )
         )

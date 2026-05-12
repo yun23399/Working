@@ -1,6 +1,5 @@
-"""对话服务层，处理对话、消息与模拟流式回复逻辑"""
+"""对话服务层，处理对话、消息与 Manager 流式回复逻辑"""
 
-import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from typing import Any
@@ -9,6 +8,12 @@ from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.llm.providers import LLMConfigurationError
+from app.core.llm.streaming import stream_tokens_to_websocket
+from app.core.manager.manager_agent import (
+    ManagerAgent,
+    ManagerConversationMessage,
+)
 from app.database import SessionLocal
 from app.models.conversation import Conversation
 from app.models.message import Message
@@ -95,28 +100,20 @@ def create_user_message(
     return message
 
 
-def build_manager_reply(prompt: str) -> str:
-    """根据用户输入生成阶段一的模拟 Manager 回复文本"""
+def load_conversation_context(
+    db: Session, conversation_id: int
+) -> tuple[Conversation, list[ManagerConversationMessage]]:
+    """加载对话与完整历史消息，供 Manager 生成真实回复"""
 
-    if "商品" in prompt or "页面" in prompt:
-        return (
-            "我已经收到你的需求。下一步我会先整理页面结构、关键交互和展示区域，"
-            "随后再进入工作流规划。当前阶段先为你建立最小对话闭环。"
-        )
-    return (
-        "需求已收到。当前系统正在使用模拟流式回复验证聊天链路，"
-        "后续会替换为真实的 LLM 输出。"
-    )
+    conversation = db.get(Conversation, conversation_id)
+    if conversation is None:
+        raise ConversationNotFoundError(conversation_id)
 
-
-def split_reply_for_streaming(reply: str, chunk_size: int = 12) -> list[str]:
-    """将回复切分为多个短片段，兼容中文文本的流式展示"""
-
-    return [
-        reply[index : index + chunk_size]
-        for index in range(0, len(reply), chunk_size)
-        if reply[index : index + chunk_size]
+    history_messages = [
+        ManagerConversationMessage(role=message.role, content=message.content)
+        for message in list_messages(db, conversation)
     ]
+    return conversation, history_messages
 
 
 def save_agent_message(
@@ -141,51 +138,97 @@ def save_agent_message(
 
 async def stream_manager_reply(
     conversation_id: int,
-    prompt: str,
     broadcaster: BroadcastCallable,
 ) -> None:
-    """使用模拟流式回复验证阶段一聊天链路，并将消息持久化"""
+    """生成 Manager 的真实流式回复，并在完成后持久化消息"""
 
+    manager_agent = ManagerAgent()
     try:
-        logger.info("开始推送对话 {} 的模拟流式回复", conversation_id)
+        logger.info("开始推送对话 {} 的 Manager 流式回复", conversation_id)
         await broadcaster(
             "agent_status",
             conversation_id,
             {"agent_id": "manager", "status": "running", "role": "manager"},
         )
+        runtime_label = manager_agent.get_runtime_label()
         await broadcaster(
             "log",
             conversation_id,
             {
                 "level": "INFO",
-                "message": "Manager 正在生成模拟流式回复",
+                "message": f"Manager 正在通过 {runtime_label} 生成回复",
                 "agent_id": "manager",
             },
         )
 
-        reply = build_manager_reply(prompt)
-        chunks = split_reply_for_streaming(reply)
-        token_count = 0
-        for chunk in chunks:
-            token_count += 1
-            await broadcaster(
-                "token",
-                conversation_id,
-                {"content": chunk, "agent_id": "manager"},
+        with SessionLocal() as db:
+            conversation, history_messages = load_conversation_context(
+                db, conversation_id
             )
-            await asyncio.sleep(0.08)
+
+        stream_result = await stream_tokens_to_websocket(
+            conversation_id=conversation_id,
+            token_stream=manager_agent.stream_reply(
+                conversation.title,
+                history_messages,
+            ),
+            broadcaster=broadcaster,
+            agent_id="manager",
+        )
+        if not stream_result.content:
+            raise ValueError("Manager 未返回有效内容")
 
         with SessionLocal() as db:
-            save_agent_message(db, conversation_id, reply, token_count)
+            save_agent_message(
+                db,
+                conversation_id,
+                stream_result.content,
+                stream_result.token_count,
+            )
 
         await broadcaster(
             "agent_status",
             conversation_id,
             {"agent_id": "manager", "status": "done", "role": "manager"},
         )
-        logger.info("对话 {} 的模拟流式回复已完成", conversation_id)
+        logger.info("对话 {} 的 Manager 流式回复已完成", conversation_id)
+    except LLMConfigurationError as exc:
+        logger.exception("对话 {} 的 LLM 配置无效: {}", conversation_id, exc)
+        await broadcaster(
+            "log",
+            conversation_id,
+            {
+                "level": "ERROR",
+                "message": f"LLM 配置无效: {exc}",
+                "agent_id": "manager",
+            },
+        )
+        await broadcaster(
+            "agent_status",
+            conversation_id,
+            {"agent_id": "manager", "status": "failed", "role": "manager"},
+        )
+        await broadcaster(
+            "error",
+            conversation_id,
+            {"message": str(exc), "recoverable": True},
+        )
     except Exception as exc:
-        logger.exception("对话 {} 的模拟流式回复失败: {}", conversation_id, exc)
+        logger.exception("对话 {} 的 Manager 流式回复失败: {}", conversation_id, exc)
+        await broadcaster(
+            "log",
+            conversation_id,
+            {
+                "level": "ERROR",
+                "message": f"Manager 执行失败: {exc}",
+                "agent_id": "manager",
+            },
+        )
+        await broadcaster(
+            "agent_status",
+            conversation_id,
+            {"agent_id": "manager", "status": "failed", "role": "manager"},
+        )
         await broadcaster(
             "error",
             conversation_id,

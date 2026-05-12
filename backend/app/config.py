@@ -10,6 +10,12 @@ class Settings(BaseSettings):
 
     app_host: str = "127.0.0.1"
     app_port: int = 8000
+    openai_api_key: str = ""
+    anthropic_api_key: str = ""
+    ollama_base_url: str = "http://localhost:11434"
+    llm_provider: str = "auto"
+    llm_model: str = ""
+    llm_timeout_seconds: int = 60
     database_url: str = "sqlite:///./data/app.db"
     jwt_secret_key: str = token_urlsafe(32)
     jwt_expire_minutes: int = 10080

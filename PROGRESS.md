@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**🔄 阶段一：基础骨架 MVP（当前优先：最小闭环已打通，下一步进入真实 LLM 对话接入）**
+**🔄 阶段一：基础骨架 MVP（当前优先：完成真实 LLM 普通对话接入，下一步收尾最小项目/历史视图）**
 
 ---
 
@@ -16,7 +16,7 @@
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
-| 阶段一：基础骨架 MVP | 🔄 进行中 | 登录、对话、WebSocket 流式闭环已打通，下一步接入真实 LLM |
+| 阶段一：基础骨架 MVP | 🔄 进行中 | 登录、对话、WebSocket、真实 LLM 普通对话已打通，下一步收尾列表与历史视图 |
 | 阶段二：工作流引擎 | ⏳ 待开始 | 依赖阶段一普通对话稳定 |
 | 阶段三：工具集接入 | ⏳ 待开始 | 依赖阶段二完成 |
 | 阶段四：完善体验 | ⏳ 待开始 | 依赖阶段三完成 |
@@ -65,15 +65,15 @@
 - 验收标准：用户可登录、进入聊天页、发送消息并看到流式回复
 
 ### Step 5 — LLM 适配层
-- [ ] `backend/app/core/llm/adapter.py`：统一 `chat()` 接口
-- [ ] `backend/app/core/llm/providers.py`：读取环境变量并适配 OpenAI / Anthropic / Ollama
-- [ ] `backend/app/core/llm/streaming.py`：处理 token 流并推送 WebSocket
+- [x] `backend/app/core/llm/adapter.py`：统一 `chat()` 接口
+- [x] `backend/app/core/llm/providers.py`：读取环境变量并适配 OpenAI / Anthropic / Ollama
+- [x] `backend/app/core/llm/streaming.py`：处理 token 流并推送 WebSocket
 - 验收标准：可通过统一接口拿到真实模型流式输出
 
 ### Step 6 — Manager Agent 基础对话
-- [ ] `backend/app/core/manager/manager_agent.py`：接收用户消息并调用 LLM
-- [ ] `POST /api/conversations/{id}/chat`：接入真实 Manager 普通对话
-- [ ] 本阶段只做普通对话，不进入工作流规划
+- [x] `backend/app/core/manager/manager_agent.py`：接收用户消息并调用 LLM
+- [x] `POST /api/conversations/{id}/chat`：接入真实 Manager 普通对话
+- [x] 本阶段只做普通对话，不进入工作流规划
 - 验收标准：Manager 可基于真实模型完成基础对话
 
 ### Step 7 — 最小项目/历史视图与阶段收尾
@@ -140,8 +140,10 @@
 - ✅ 前后端真实工程骨架 — 2026-05-12 | frontend Vite/React/TS + backend FastAPI/SQLAlchemy/Alembic
 - ✅ 阶段一 Step 1 基础验证 — 2026-05-12 | 前端 lint/build 与后端 ruff/black/alembic/health 通过
 - ✅ 阶段一 Step 2 认证闭环 — 2026-05-12 | 注册、登录、JWT 鉴权与 `/api/auth/me` 实测通过
-- ✅ 阶段一 Step 3 最小对话后端闭环 — 2026-05-12 | 对话、消息、WebSocket、模拟流式回复、日志与迁移实测通过
+- ✅ 阶段一 Step 3 最小对话后端闭环 — 2026-05-12 | 对话、消息、WebSocket、最小流式回复、日志与迁移实测通过
 - ✅ 阶段一 Step 4 前端最小聊天闭环 — 2026-05-12 | 登录、聊天、日志、流式回复与浏览器实测通过
+- ✅ 阶段一 Step 5 LLM 适配层 — 2026-05-12 | 统一 LLM 配置、流式适配与 Ollama 原生流式兼容路径实测通过
+- ✅ 阶段一 Step 6 Manager 基础对话 — 2026-05-12 | Manager 真实普通对话、消息持久化与 WebSocket 事件链实测通过
 
 ---
 
@@ -295,6 +297,27 @@
   5. 浏览器联调实测通过：`/login -> /chat -> 发送消息 -> 收到流式回复`
   6. 使用 `httpx.AsyncClient(trust_env=False)` 避免本地代理导致的误判
 
+### 2026-05-12 会话 #9
+- 执行内容：完成阶段一 Step 5 LLM 适配层与 Step 6 Manager 真实普通对话接入
+- 新增文件：
+  1. `backend/app/core/llm/providers.py`
+  2. `backend/app/core/llm/adapter.py`
+  3. `backend/app/core/llm/streaming.py`
+  4. `backend/app/core/manager/manager_agent.py`
+- 关键改造：
+  1. 后端新增统一 LLM 提供商配置解析，支持 `openai`、`anthropic`、`ollama` 与 `auto`
+  2. 对话服务由模拟回复切换为真实 Manager Agent 普通对话
+  3. 保持现有 WebSocket 协议不变，前端无需改动即可消费真实流式输出
+  4. 为本地 Ollama 增加原生 `/api/chat` 流式兼容路径，绕过当前 LiteLLM 版本的流式兼容问题
+  5. `.env.example`、README 与部署/接口文档已同步更新到真实 LLM 流程
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. 最小适配器实测：`LLM_PROVIDER=ollama`、`LLM_MODEL=qwen2.5-coder:3b` 可产生真实流式输出
+  4. 临时后端联调实测：注册 `201`、登录 `200`、创建对话 `201`、聊天 `200`、消息查询 `200`
+  5. WebSocket 事件链实测通过：`log -> agent_status(running) -> log -> token -> ... -> agent_status(done)`
+  6. assistant 最终消息已真实持久化到数据库
+
 ---
 
 ## 已知问题 / 待决定事项
@@ -304,4 +327,4 @@
 | #002 | `files.zip` 不包含前后端工程代码，仅包含文档文件 | ⚠️ 已确认 | 中 |
 | #005 | 本机未发现 `gh`，若后续需要 CLI 创建仓库或发 PR，需先安装并登录 GitHub CLI | ⏳ 待处理 | 中 |
 | #006 | 本机 `127.0.0.1:8000` 已被其他 `uvicorn --reload` 进程占用，后续本项目联调需避开该端口或先确认归属 | ⚠️ 已确认 | 中 |
-| #007 | 当前聊天仍使用模拟流式回复，真实 LLM 接入尚未开始 | ⏳ 待处理 | 高 |
+| #007 | 本地可用默认模型为 `qwen2.5-coder` 系列，更偏代码场景；普通中文需求跟随质量后续仍需更通用模型验证 | ⏳ 待处理 | 中 |

@@ -181,8 +181,8 @@ Authorization: Bearer <access_token>
     "id": 11,
     "conversation_id": 3,
     "role": "assistant",
-    "content": "我已经收到你的需求。下一步我会先整理页面结构、关键交互和展示区域，随后再进入工作流规划。当前阶段先为你建立最小对话闭环。",
-    "token_count": 4,
+    "content": "我已经理解到你要构建一个商品详情页。下一步我会先帮你梳理页面模块、信息结构与关键交互，再继续细化实现范围。",
+    "token_count": 32,
     "created_at": "2026-05-12T11:50:11Z"
   }
 ]
@@ -198,7 +198,7 @@ Authorization: Bearer <access_token>
 
 ### POST /api/conversations/{conversation_id}/chat
 
-用途：发送用户消息，并触发最小模拟流式回复。
+用途：发送用户消息，并触发 Manager Agent 的真实流式回复。
 
 请求体：
 
@@ -222,6 +222,7 @@ Authorization: Bearer <access_token>
 
 - HTTP 接口负责写入用户消息并启动后台流式任务
 - 实际回复内容通过 WebSocket 返回
+- 若当前 LLM 配置无效或模型调用失败，错误也会通过 WebSocket `error` 事件返回
 
 错误码：
 

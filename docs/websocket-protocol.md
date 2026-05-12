@@ -96,7 +96,7 @@
   "conversation_id": "3",
   "payload": {
     "level": "INFO",
-    "message": "Manager 正在生成模拟流式回复",
+    "message": "Manager 正在通过 ollama::qwen2.5-coder:3b 生成回复",
     "agent_id": "manager"
   },
   "timestamp": "2026-05-12T11:50:10Z"
@@ -132,8 +132,8 @@
 当前阶段一已经完成以下闭环：
 
 1. HTTP 接口写入用户消息
-2. 后端通过 WebSocket 推送 `log`
-3. 后端推送 `agent_status=running`
-4. 后端分段推送 `token`
+2. 后端推送 `agent_status=running`
+3. 后端通过 WebSocket 推送 `log`
+4. 后端基于真实 LLM 分段推送 `token`
 5. 后端推送 `agent_status=done`
 6. 完整 assistant 消息最终持久化到数据库

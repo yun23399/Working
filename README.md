@@ -11,13 +11,14 @@
 3. 创建并切换对话
 4. 发送消息并通过 WebSocket 接收流式回复
 5. 持久化对话与消息历史
-6. 前后端真实联调验证
+6. 统一 LLM 适配层与 Manager Agent 普通对话
+7. 前后端真实联调验证
 
 当前下一步目标：
 
-1. 接入统一 LLM 适配层
-2. 将模拟流式回复替换为真实模型输出
-3. 让 Manager Agent 进入真实普通对话阶段
+1. 完成阶段一 Step 7 的最小项目/历史视图收尾
+2. 复跑阶段一整体验证并稳定收口
+3. 进入阶段二的工作流引擎开发
 
 ## 技术栈
 
@@ -52,6 +53,13 @@ cd backend
 pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+如需使用本地 Ollama，建议额外配置：
+
+```powershell
+$env:LLM_PROVIDER='ollama'
+$env:LLM_MODEL='qwen2.5-coder:3b'
 ```
 
 ### 前端
@@ -105,3 +113,8 @@ docs/       接口、流程、部署、前端规格文档
 ## 环境变量
 
 请参考 [`.env.example`](./.env.example)。
+
+说明：
+
+- `LLM_PROVIDER=auto` 时，后端会优先使用已配置的云模型 Key，否则回退到本地 Ollama
+- `LLM_MODEL` 留空时，会按当前提供商选择默认模型

@@ -28,6 +28,12 @@
 后端关键变量：
 
 ```env
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
+OLLAMA_BASE_URL=http://localhost:11434
+LLM_PROVIDER=auto
+LLM_MODEL=
+LLM_TIMEOUT_SECONDS=60
 DATABASE_URL=sqlite:///./data/app.db
 JWT_SECRET_KEY=
 APP_HOST=127.0.0.1
@@ -79,7 +85,6 @@ npm run preview
 
 当前还不适合直接作为生产版本上线，因为以下能力尚未完成：
 
-- 真实 LLM 流式输出
 - 项目实体与工作流实体
 - Docker 沙盒隔离
 - PostgreSQL
@@ -88,7 +93,6 @@ npm run preview
 
 ## 6. 进入测试/生产前必须补齐
 
-- 真实 LLM 适配层
 - Docker 化部署
 - 机密配置管理
 - 统一日志采集

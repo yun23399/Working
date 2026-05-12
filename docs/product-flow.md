@@ -34,14 +34,20 @@
 1. 用户在聊天输入框中发送消息
 2. 前端调用 `POST /api/conversations/{id}/chat`
 3. 后端保存用户消息
-4. 后端启动模拟 Manager 回复任务
+4. 后端加载对话历史并启动 Manager Agent
 5. 后端通过 WebSocket 推送 `log`
 6. 后端推送 `agent_status=running`
-7. 后端持续推送 `token`
-8. 前端实时拼接并展示流式消息
-9. 后端推送 `agent_status=done`
-10. 完整回复持久化到数据库
+7. Manager 通过统一 LLM 适配层获取真实流式输出
+8. 后端持续推送 `token`
+9. 完整回复持久化到数据库
+10. 后端推送 `agent_status=done`
 11. 对话 `updated_at` 刷新，历史列表排序更新
+
+当前实现说明：
+
+- `LLM_PROVIDER=auto` 时，会优先使用已配置的云模型 Key
+- 若未配置云模型 Key，则默认尝试本地 Ollama
+- 当前阶段仍只做普通对话，不进入工作流规划
 
 ## 4. 错误恢复流程
 
