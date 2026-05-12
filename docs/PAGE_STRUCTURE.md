@@ -48,6 +48,7 @@
 - 左侧栏：`Sidebar`
 - 主内容容器：`MainArea`
 - 工作流预览区：`WorkflowConfirm`
+- 工作流日志区：`LogViewer`
 - 聊天窗口：`ChatWindow`
 
 依赖：
@@ -94,6 +95,7 @@ frontend/src/
 │       ├── Sidebar.tsx
 │       └── TopNav.tsx
 │   └── workflow/
+│       ├── LogViewer.tsx
 │       └── WorkflowConfirm.tsx
 ├── hooks/
 │   └── useWebSocket.ts
@@ -134,6 +136,7 @@ frontend/src/
 
 - 负责保存登录态、对话态、流式态和最小项目态
 - 负责保存工作流预览态
+- 负责保存按工作流归档的实时运行日志
 
 ### `hooks/`
 

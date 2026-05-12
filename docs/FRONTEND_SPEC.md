@@ -41,6 +41,7 @@
 - 支持生成、重新规划和确认工作流预览
 - 支持启动最小工作流执行，并实时展示进度
 - 支持在节点完成、失败和终态后自动刷新执行日志与节点摘要消息
+- 支持在独立日志面板中实时展示编排器与节点运行日志
 - 支持退出登录
 
 状态定义：
@@ -57,6 +58,7 @@
 - `socketStatus`
 - `errorMessage`
 - `workflowsByConversation`
+- `workflowLogsByWorkflowId`
 - `loadingConversationId`
 - `generatingConversationId`
 - `confirmingWorkflowId`
@@ -77,6 +79,7 @@
 - 执行进度条：显示当前工作流进度百分比
 - 节点状态标签：展示 waiting / running / done / failed
 - 执行刷新：节点完成或工作流结束时自动回拉最新工作流和消息历史
+- 工作流日志面板：单独展示 `orchestrator` 与 `node_*` 的实时运行日志
 - 发送按钮：提交当前输入内容
 - WebSocket 断线：自动重连最多 3 次
 
@@ -261,7 +264,24 @@ interface MessageBubbleProps {
 }
 ```
 
-### 2.7 `StreamingText`
+### 2.7 `LogViewer`
+
+功能说明：
+
+- 展示当前工作流运行期的结构化日志
+- 区分 `INFO / WARNING / ERROR` 日志等级
+- 默认仅承载编排器与工作流节点日志
+- 执行新一轮工作流前清空旧日志
+
+Props：
+
+```ts
+interface LogViewerProps {
+  logs: ActivityLog[]
+}
+```
+
+### 2.8 `StreamingText`
 
 功能说明：
 
@@ -317,6 +337,7 @@ interface StreamingTextProps {
 - 按对话缓存工作流预览列表
 - 维护预览加载、生成和确认中的状态
 - 维护执行中的工作流编号与节点状态
+- 维护按工作流编号分组的运行时日志
 - 保存工作流相关错误提示
 - 为聊天页提供当前对话的最新预览
 
@@ -329,6 +350,7 @@ interface StreamingTextProps {
 - 根据 `conversationId` 和 `token` 建立实时连接
 - 解析事件类型
 - 处理日志、流式 token、状态切换和错误提示
+- 支持将工作流事件和日志事件回调给页面层
 - 最多自动重连 3 次
 
 输入：
@@ -389,7 +411,8 @@ useWebSocket(conversationId: number | null, token: string | null)
 9. 基于当前对话生成工作流预览
 10. 确认或重新规划工作流预览
 11. 启动最小工作流执行并查看节点状态
-12. 刷新页面后恢复登录态和项目映射
+12. 在独立日志面板查看工作流编排与节点实时日志
+13. 刷新页面后恢复登录态和项目映射
 
 ## 7. 规划中的可复用组件
 
@@ -418,6 +441,6 @@ useWebSocket(conversationId: number | null, token: string | null)
 
 1. 接入真实 LLM 流式输出后的消息状态适配
 2. 项目实体持久化与后端项目接口
-3. 工作流执行状态面板与日志流
+3. 共享工作区与项目级记忆
 4. 代码/图片/文档预览组件
 5. 暗色主题切换

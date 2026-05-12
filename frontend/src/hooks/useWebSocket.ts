@@ -34,6 +34,7 @@ function parseConversationSocketEvent(rawValue: string): ConversationSocketEvent
 
 interface UseWebSocketOptions {
   onWorkflowUpdate?: (event: Extract<ConversationSocketEvent, { type: 'workflow_update' }>) => void
+  onLogEvent?: (event: Extract<ConversationSocketEvent, { type: 'log' }>) => void
 }
 
 // 建立对话级 WebSocket 连接，并处理最多三次自动重连
@@ -50,6 +51,7 @@ export function useWebSocket(
   const startAssistantStream = useChatStore((state) => state.startAssistantStream)
   const updateWorkflowProgress = useWorkflowStore((state) => state.updateWorkflowProgress)
   const onWorkflowUpdate = options?.onWorkflowUpdate
+  const onLogEvent = options?.onLogEvent
 
   useEffect(() => {
     if (conversationId === null || token === null) {
@@ -116,6 +118,7 @@ export function useWebSocket(
               message: event.payload.message,
               agentId: event.payload.agent_id,
             })
+            onLogEvent?.(event)
             break
           case 'workflow_update':
             updateWorkflowProgress(
@@ -185,6 +188,7 @@ export function useWebSocket(
     setSocketStatus,
     startAssistantStream,
     token,
+    onLogEvent,
     onWorkflowUpdate,
     updateWorkflowProgress,
   ])

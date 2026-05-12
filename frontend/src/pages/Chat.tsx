@@ -18,6 +18,7 @@ import { ChatWindow } from '../components/chat/ChatWindow'
 import { MainArea } from '../components/layout/MainArea'
 import { Sidebar } from '../components/layout/Sidebar'
 import { TopNav } from '../components/layout/TopNav'
+import { LogViewer } from '../components/workflow/LogViewer'
 import { WorkflowConfirm } from '../components/workflow/WorkflowConfirm'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuthStore } from '../stores/authStore'
@@ -29,6 +30,7 @@ import {
   useProjectStore,
 } from '../stores/projectStore'
 import {
+  getWorkflowRuntimeLogs,
   getLatestWorkflowPreview,
   useWorkflowStore,
 } from '../stores/workflowStore'
@@ -106,6 +108,7 @@ export function Chat() {
   const touchConversation = useChatStore((state) => state.touchConversation)
   const socketStatus = useChatStore((state) => state.socketStatus)
   const workflowsByConversation = useWorkflowStore((state) => state.workflowsByConversation)
+  const workflowLogsByWorkflowId = useWorkflowStore((state) => state.workflowLogsByWorkflowId)
   const workflowErrorMessage = useWorkflowStore((state) => state.errorMessage)
   const loadingConversationId = useWorkflowStore((state) => state.loadingConversationId)
   const generatingConversationId = useWorkflowStore((state) => state.generatingConversationId)
@@ -113,6 +116,8 @@ export function Chat() {
   const executingWorkflowId = useWorkflowStore((state) => state.executingWorkflowId)
   const setWorkflowList = useWorkflowStore((state) => state.setWorkflowList)
   const upsertWorkflow = useWorkflowStore((state) => state.upsertWorkflow)
+  const appendWorkflowRuntimeLog = useWorkflowStore((state) => state.appendRuntimeLog)
+  const clearWorkflowRuntimeLogs = useWorkflowStore((state) => state.clearRuntimeLogs)
   const setWorkflowLoadingConversationId = useWorkflowStore(
     (state) => state.setLoadingConversationId,
   )
@@ -139,6 +144,10 @@ export function Chat() {
     workflowsByConversation,
     activeConversationId,
   )
+  const workflowRuntimeLogs = getWorkflowRuntimeLogs(
+    workflowLogsByWorkflowId,
+    activeWorkflowPreview?.workflow_id ?? null,
+  )
   const hasUserMessages = messages.some((message) => message.role === 'user')
   const canGenerateWorkflow =
     activeConversationId !== null && hasUserMessages && !isBootstrapping
@@ -150,6 +159,9 @@ export function Chat() {
     activeWorkflowPreview !== null && confirmingWorkflowId === activeWorkflowPreview.workflow_id
   const isExecutingWorkflow =
     activeWorkflowPreview !== null && executingWorkflowId === activeWorkflowPreview.workflow_id
+  const chatWindowLogs = activityLogs.filter(
+    (log) => log.agentId === 'system' || log.agentId === 'manager',
+  )
 
   useEffect(() => {
     if (!token) {
@@ -261,7 +273,35 @@ export function Chat() {
     [activeConversationId, scheduleWorkflowRefresh],
   )
 
+  const handleWorkflowLogEvent = useCallback(
+    (event: {
+      timestamp: string
+      payload: {
+        level: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR'
+        message: string
+        agent_id: string
+      }
+    }) => {
+      if (
+        activeWorkflowPreview === null ||
+        (event.payload.agent_id !== 'orchestrator' &&
+          !event.payload.agent_id.startsWith('node_'))
+      ) {
+        return
+      }
+
+      appendWorkflowRuntimeLog(activeWorkflowPreview.workflow_id, {
+        id: `${event.timestamp}-${event.payload.agent_id}`,
+        level: event.payload.level,
+        message: event.payload.message,
+        agentId: event.payload.agent_id,
+      })
+    },
+    [activeWorkflowPreview, appendWorkflowRuntimeLog],
+  )
+
   useWebSocket(activeConversationId, token, {
+    onLogEvent: handleWorkflowLogEvent,
     onWorkflowUpdate: handleWorkflowUpdateEvent,
   })
 
@@ -655,6 +695,7 @@ export function Chat() {
     setWorkflowError(null)
 
     try {
+      clearWorkflowRuntimeLogs(activeWorkflowPreview.workflow_id)
       const runningWorkflow = await executeWorkflow(
         token,
         activeConversationId,
@@ -742,6 +783,7 @@ export function Chat() {
                 void handleExecuteWorkflow()
               }}
             />
+            <LogViewer logs={workflowRuntimeLogs} />
             <div className="min-h-0 flex-1 overflow-hidden rounded-[24px] border border-line bg-white/80 shadow-sm">
               <ChatWindow
                 draft={draft}
@@ -749,7 +791,7 @@ export function Chat() {
                 isBootstrapping={isBootstrapping}
                 isSending={isSending}
                 isStreaming={isStreaming}
-                logs={activityLogs}
+                logs={chatWindowLogs}
                 messages={messages}
                 socketStatus={socketStatus}
                 onDraftChange={setDraft}

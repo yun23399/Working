@@ -1,8 +1,10 @@
 import { create } from 'zustand'
+import type { ActivityLog } from '../types/chat'
 import type { WorkflowExecutionLog, WorkflowPreview } from '../types/workflow'
 
 interface WorkflowState {
   workflowsByConversation: Record<number, WorkflowPreview[]>
+  workflowLogsByWorkflowId: Record<number, ActivityLog[]>
   loadingConversationId: number | null
   generatingConversationId: number | null
   confirmingWorkflowId: number | null
@@ -26,10 +28,14 @@ interface WorkflowState {
     workflowId: number,
     executionLog: WorkflowExecutionLog,
   ) => void
+  appendRuntimeLog: (workflowId: number, log: ActivityLog) => void
+  clearRuntimeLogs: (workflowId: number) => void
   setError: (message: string | null) => void
   clearConversationWorkflows: (conversationId: number) => void
   clearWorkflowState: () => void
 }
+
+const maxWorkflowLogCount = 80
 
 // 按更新时间倒序整理工作流列表，保证最新预览排在最前面
 function sortWorkflows(workflows: WorkflowPreview[]): WorkflowPreview[] {
@@ -58,8 +64,21 @@ export function getLatestWorkflowPreview(
   return workflowList[0] ?? null
 }
 
+// 读取指定工作流的实时日志列表
+export function getWorkflowRuntimeLogs(
+  workflowLogsByWorkflowId: Record<number, ActivityLog[]>,
+  workflowId: number | null,
+): ActivityLog[] {
+  if (workflowId === null) {
+    return []
+  }
+
+  return workflowLogsByWorkflowId[workflowId] ?? []
+}
+
 export const useWorkflowStore = create<WorkflowState>((set) => ({
   workflowsByConversation: {},
+  workflowLogsByWorkflowId: {},
   loadingConversationId: null,
   generatingConversationId: null,
   confirmingWorkflowId: null,
@@ -156,6 +175,25 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
         },
       }
     }),
+  appendRuntimeLog: (workflowId, log) =>
+    set((state) => ({
+      workflowLogsByWorkflowId: {
+        ...state.workflowLogsByWorkflowId,
+        [workflowId]: [
+          ...(state.workflowLogsByWorkflowId[workflowId] ?? []),
+          log,
+        ].slice(-maxWorkflowLogCount),
+      },
+    })),
+  clearRuntimeLogs: (workflowId) =>
+    set((state) => {
+      const nextLogs = { ...state.workflowLogsByWorkflowId }
+      delete nextLogs[workflowId]
+
+      return {
+        workflowLogsByWorkflowId: nextLogs,
+      }
+    }),
   setError: (errorMessage) => set({ errorMessage }),
   clearConversationWorkflows: (conversationId) =>
     set((state) => {
@@ -169,6 +207,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   clearWorkflowState: () =>
     set({
       workflowsByConversation: {},
+      workflowLogsByWorkflowId: {},
       loadingConversationId: null,
       generatingConversationId: null,
       confirmingWorkflowId: null,
