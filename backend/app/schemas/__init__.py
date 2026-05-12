@@ -6,9 +6,21 @@ from app.schemas.auth import (
     TokenResponseSchema,
     UserResponseSchema,
 )
+from app.schemas.conversation import (
+    ChatAcceptedSchema,
+    ChatRequestSchema,
+    ConversationCreateSchema,
+    ConversationResponseSchema,
+    MessageResponseSchema,
+)
 
 __all__ = [
+    "ChatAcceptedSchema",
+    "ChatRequestSchema",
+    "ConversationCreateSchema",
+    "ConversationResponseSchema",
     "LoginRequestSchema",
+    "MessageResponseSchema",
     "RegisterRequestSchema",
     "TokenResponseSchema",
     "UserResponseSchema",

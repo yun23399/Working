@@ -2,22 +2,22 @@
 
 ## 阶段一验收目标
 
-阶段一不是“文件创建完成”，而是“最小闭环跑通”。
+阶段一的验收标准不是“文件存在”，而是“最小聊天闭环可跑通”。
 
-需要验证以下链路：
+当前已验证的链路：
 
 1. 前端依赖安装成功
 2. 前端 lint 通过
 3. 前端 build 通过
 4. 后端依赖安装成功
-5. 后端 ruff 通过
-6. 后端 black 检查通过
-7. 数据库迁移成功
+5. 后端 `ruff check .` 通过
+6. 后端 `black --check .` 通过
+7. Alembic 真实迁移可执行
 8. 后端服务可启动
-9. 注册登录可用
-10. 对话接口可用
+9. 注册、登录、鉴权可用
+10. 对话创建与历史消息接口可用
 11. WebSocket 流式消息可用
-12. 历史消息持久化可用
+12. 浏览器中可完成登录与聊天联调
 
 ## 建议命令
 
@@ -38,49 +38,86 @@ pip install -r requirements.txt
 ruff check .
 black --check .
 alembic upgrade head
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-## 最小联调用例
+### 浏览器联调前准备
+
+如果本机第一次执行 Playwright 浏览器自动化，需要先安装浏览器运行时：
+
+```powershell
+cd backend
+python -m playwright install chromium
+```
+
+## 当前已完成的实测结果
 
 ### 用例 1：注册与登录
 
-预期：
+验证结果：
 
-- 用户可成功注册
-- 用户可成功登录
-- 返回 JWT
+- `/api/auth/register` 返回 `201`
+- `/api/auth/login` 返回 `200`
+- `/api/auth/me` 可返回当前用户
 
-### 用例 2：创建项目与对话
+### 用例 2：创建对话与读取消息
 
-预期：
+验证结果：
 
-- 用户可创建项目
-- 用户可创建对话
-- 列表接口可返回新创建数据
+- `/api/conversations` 返回 `200`
+- `POST /api/conversations` 返回 `201`
+- `/api/conversations/{id}/messages` 返回 `200`
 
-### 用例 3：聊天流式回复
+### 用例 3：WebSocket 流式回复
 
-预期：
+验证结果：
 
-- 发送消息成功
-- 前端收到 WebSocket `token`
-- 前端显示打字机效果
-- 流式完成后消息被持久化
+- `POST /api/conversations/{id}/chat` 返回 `200`
+- 已接收到事件序列：`log -> agent_status -> log -> token -> ... -> agent_status(done)`
+- assistant 最终消息已持久化
 
-## 阶段二验收目标
+### 用例 4：统一错误格式
 
-- Manager 能生成工作流
-- 用户可确认工作流
-- Agent 状态可视化
-- 日志与产出物可实时查看
+验证结果：
+
+- 参数校验失败时返回 `422`
+- 响应结构已统一为 `error / code / detail`
+
+### 用例 5：浏览器真实联调
+
+验证结果：
+
+- 登录页可访问
+- 可从注册模式成功进入聊天页
+- 聊天页可发送消息
+- 浏览器内可看到 Manager 流式回复
+
+## 本地验证注意事项
+
+### 1. 代理环境干扰
+
+若使用 `httpx` 做本地接口验证，建议显式关闭环境代理：
+
+```python
+httpx.AsyncClient(trust_env=False)
+```
+
+否则本地 `127.0.0.1` 请求可能被代理拦截，出现误判。
+
+### 2. 端口占用
+
+若本机 `8000` 或 `5173` 已被占用，可切换临时端口，但要同步更新：
+
+- 后端启动端口
+- 前端 `VITE_API_BASE_URL`
+- 后端 `CORS_ALLOW_ORIGINS`
 
 ## 回归检查
 
-每完成一个大步骤后应回归：
+每完成一个大步骤后，至少回归：
 
 1. 登录页是否仍可用
 2. 聊天页是否仍可用
 3. WebSocket 是否仍可连接
-4. 数据库迁移是否仍可执行
-5. 关键文档是否仍与实现一致
+4. Alembic 迁移是否仍可执行
+5. 文档是否仍与实现一致

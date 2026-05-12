@@ -15,11 +15,29 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 10080
     workspace_dir: str = "./workspace"
     log_dir: str = "./logs"
+    cors_allow_origins: str = (
+        "http://127.0.0.1:5173,"
+        "http://localhost:5173,"
+        "http://127.0.0.1:5174,"
+        "http://localhost:5174,"
+        "http://127.0.0.1:4173,"
+        "http://localhost:4173"
+    )
     max_concurrent_workflows: int = 3
     code_exec_timeout: int = 30
     sandbox_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @property
+    def cors_allow_origins_list(self) -> list[str]:
+        """将逗号分隔的跨域来源配置转换为列表"""
+
+        return [
+            origin.strip()
+            for origin in self.cors_allow_origins.split(",")
+            if origin.strip()
+        ]
 
 
 settings = Settings()

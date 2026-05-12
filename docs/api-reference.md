@@ -1,6 +1,6 @@
 # API 接口契约
 
-本文档定义阶段一与阶段二会用到的核心接口契约。所有错误返回统一遵守以下格式：
+本文档记录当前仓库已经实现并验证过的核心接口。所有错误返回统一遵守以下格式：
 
 ```json
 {
@@ -9,6 +9,8 @@
   "detail": "详细信息"
 }
 ```
+
+---
 
 ## 1. 认证接口
 
@@ -21,7 +23,7 @@
 ```json
 {
   "username": "alice",
-  "password": "strong-password"
+  "password": "secret123"
 }
 ```
 
@@ -29,7 +31,7 @@
 
 ```json
 {
-  "id": "user_123",
+  "id": 1,
   "username": "alice",
   "created_at": "2026-05-12T09:00:00Z"
 }
@@ -39,6 +41,7 @@
 
 - `USER_ALREADY_EXISTS`
 - `VALIDATION_ERROR`
+- `REGISTER_FAILED`
 
 ### POST /api/auth/login
 
@@ -49,7 +52,7 @@
 ```json
 {
   "username": "alice",
-  "password": "strong-password"
+  "password": "secret123"
 }
 ```
 
@@ -60,8 +63,9 @@
   "access_token": "jwt-token",
   "token_type": "bearer",
   "user": {
-    "id": "user_123",
-    "username": "alice"
+    "id": 1,
+    "username": "alice",
+    "created_at": "2026-05-12T09:00:00Z"
   }
 }
 ```
@@ -70,65 +74,70 @@
 
 - `INVALID_CREDENTIALS`
 - `VALIDATION_ERROR`
+- `LOGIN_FAILED`
 
-## 2. 项目接口
+### GET /api/auth/me
 
-### GET /api/projects
+用途：返回当前登录用户信息。
 
-用途：获取当前用户的项目列表。
+请求头：
+
+```text
+Authorization: Bearer <access_token>
+```
+
+成功响应：
+
+```json
+{
+  "id": 1,
+  "username": "alice",
+  "created_at": "2026-05-12T09:00:00Z"
+}
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+
+---
+
+## 2. 对话接口
+
+### GET /api/conversations
+
+用途：获取当前用户的对话列表，按最近更新时间倒序返回。
 
 成功响应：
 
 ```json
 [
   {
-    "id": "project_1",
-    "name": "电商网站项目",
-    "description": "商品详情页需求",
-    "created_at": "2026-05-12T09:00:00Z",
-    "updated_at": "2026-05-12T09:10:00Z"
+    "id": 2,
+    "title": "新对话 05/12 11:46",
+    "created_at": "2026-05-12T11:46:00Z",
+    "updated_at": "2026-05-12T11:46:12Z"
   }
 ]
 ```
 
-### POST /api/projects
+错误码：
 
-用途：创建项目。
-
-请求体：
-
-```json
-{
-  "name": "电商网站项目",
-  "description": "商品详情页需求"
-}
-```
-
-成功响应：
-
-```json
-{
-  "id": "project_1",
-  "name": "电商网站项目",
-  "description": "商品详情页需求"
-}
-```
-
-## 3. 对话接口
-
-### GET /api/conversations?project_id={project_id}
-
-用途：获取指定项目下的对话列表。
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `LIST_CONVERSATIONS_FAILED`
 
 ### POST /api/conversations
 
-用途：创建对话。
+用途：创建新对话。
 
 请求体：
 
 ```json
 {
-  "project_id": "project_1",
   "title": "商品页开发"
 }
 ```
@@ -137,33 +146,59 @@
 
 ```json
 {
-  "id": "conversation_1",
-  "project_id": "project_1",
-  "title": "商品页开发"
+  "id": 3,
+  "title": "商品页开发",
+  "created_at": "2026-05-12T11:50:00Z",
+  "updated_at": "2026-05-12T11:50:00Z"
 }
 ```
 
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `VALIDATION_ERROR`
+- `CREATE_CONVERSATION_FAILED`
+
 ### GET /api/conversations/{conversation_id}/messages
 
-用途：获取历史消息。
+用途：获取指定对话的历史消息。
 
 成功响应：
 
 ```json
 [
   {
-    "id": "message_1",
+    "id": 10,
+    "conversation_id": 3,
     "role": "user",
     "content": "帮我做一个商品详情页",
-    "token_count": 12,
-    "created_at": "2026-05-12T09:00:00Z"
+    "token_count": 1,
+    "created_at": "2026-05-12T11:50:10Z"
+  },
+  {
+    "id": 11,
+    "conversation_id": 3,
+    "role": "assistant",
+    "content": "我已经收到你的需求。下一步我会先整理页面结构、关键交互和展示区域，随后再进入工作流规划。当前阶段先为你建立最小对话闭环。",
+    "token_count": 4,
+    "created_at": "2026-05-12T11:50:11Z"
   }
 ]
 ```
 
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `LIST_MESSAGES_FAILED`
+
 ### POST /api/conversations/{conversation_id}/chat
 
-用途：发送用户消息，并驱动 Manager Agent 回复。
+用途：发送用户消息，并触发最小模拟流式回复。
 
 请求体：
 
@@ -177,53 +212,55 @@
 
 ```json
 {
-  "message_id": "message_2",
-  "conversation_id": "conversation_1",
+  "message_id": 12,
+  "conversation_id": 3,
   "accepted": true
 }
 ```
 
 说明：
 
-- 实际回复内容通过 WebSocket 流式返回
-- HTTP 接口只负责接收请求并启动处理流程
+- HTTP 接口负责写入用户消息并启动后台流式任务
+- 实际回复内容通过 WebSocket 返回
 
-## 4. 工作流接口
+错误码：
 
-### GET /api/workflows/{conversation_id}
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `VALIDATION_ERROR`
+- `CHAT_REQUEST_FAILED`
 
-用途：获取当前对话关联的工作流定义。
+---
 
-### POST /api/workflows/{conversation_id}/confirm
+## 3. WebSocket 接入说明
 
-用途：用户确认执行工作流。
-
-请求体：
-
-```json
-{
-  "action": "confirm"
-}
-```
-
-### POST /api/workflows/{conversation_id}/control
-
-用途：控制工作流暂停、恢复、中止、重定向。
-
-请求体：
-
-```json
-{
-  "action": "pause | resume | abort | redirect",
-  "payload": {}
-}
-```
-
-## 5. 鉴权说明
-
-- 除 `/api/auth/register` 和 `/api/auth/login` 外，其余接口默认要求 Bearer Token
-- 请求头格式：
+当前实时端点：
 
 ```text
-Authorization: Bearer <access_token>
+/ws/{conversation_id}?token=<access_token>
 ```
+
+当前支持两种鉴权方式：
+
+1. 查询参数 `token`
+2. `Authorization: Bearer <access_token>` 请求头
+
+当前后端会校验：
+
+1. Token 是否有效
+2. 当前用户是否拥有该对话
+
+更多消息体示例见 [`websocket-protocol.md`](./websocket-protocol.md)。
+
+---
+
+## 4. 当前未实现但已规划的接口
+
+以下接口仍处于规划阶段，暂未在当前仓库中实现：
+
+- `/api/projects`
+- `/api/workflows/{conversation_id}`
+- `/api/workflows/{conversation_id}/confirm`
+- `/api/workflows/{conversation_id}/control`

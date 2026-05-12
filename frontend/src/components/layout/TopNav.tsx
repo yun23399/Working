@@ -1,24 +1,72 @@
-import { Bell, Search, Settings, User } from 'lucide-react'
+import { Bell, LogOut, Search, Settings } from 'lucide-react'
+import type { SocketStatus } from '../../types/chat'
 
-const actions = [Search, Bell, Settings, User]
+interface TopNavProps {
+  username: string | null
+  socketStatus: SocketStatus
+  onLogout: () => void
+}
 
-// 顶部导航组件，展示项目标题和全局操作入口
-export function TopNav() {
+function resolveStatusText(socketStatus: SocketStatus): string {
+  switch (socketStatus) {
+    case 'connected':
+      return '连接稳定'
+    case 'reconnecting':
+      return '重连中'
+    case 'error':
+      return '连接异常'
+    case 'connecting':
+      return '连接中'
+    default:
+      return '待连接'
+  }
+}
+
+// 顶部导航组件，展示项目标题、连接状态和退出入口
+export function TopNav({ username, socketStatus, onLogout }: TopNavProps) {
   return (
     <header className="col-span-2 flex items-center justify-between border-b border-line px-6">
       <div className="text-lg font-semibold text-ink">
         AgentFlow <span className="font-normal text-ink-faint">/ 电商网站项目</span>
       </div>
-      <div className="flex gap-3">
-        {actions.map((Icon, index) => (
-          <button
-            key={index}
-            type="button"
-            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-surface-panel text-ink transition hover:bg-surface-muted"
-          >
-            <Icon className="h-4 w-4" />
-          </button>
-        ))}
+      <div className="flex items-center gap-3">
+        <div
+          className={`rounded-full px-3 py-1 text-xs ${
+            socketStatus === 'connected'
+              ? 'bg-[#e8f5ee] text-[#1d6b49]'
+              : socketStatus === 'error'
+                ? 'bg-[#fff0ef] text-[#a24545]'
+                : 'bg-[#eef2fb] text-[#51639e]'
+          }`}
+        >
+          {resolveStatusText(socketStatus)}
+        </div>
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-surface-panel text-ink transition hover:bg-surface-muted"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-surface-panel text-ink transition hover:bg-surface-muted"
+        >
+          <Bell className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-surface-panel text-ink transition hover:bg-surface-muted"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex items-center gap-2 rounded-2xl border border-line bg-surface-panel px-4 py-2 text-sm text-ink transition hover:bg-surface-muted"
+        >
+          <LogOut className="h-4 w-4" />
+          {username ?? '退出'}
+        </button>
       </div>
     </header>
   )

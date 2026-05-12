@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-12
-> 更新者：Codex（会话 #7）
+> 更新者：Codex（会话 #8）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**🔄 阶段一：基础骨架 MVP（当前优先：仓库状态对齐 -> 最小可运行闭环）**
+**🔄 阶段一：基础骨架 MVP（当前优先：最小闭环已打通，下一步进入真实 LLM 对话接入）**
 
 ---
 
@@ -16,8 +16,8 @@
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
-| 阶段一：基础骨架 MVP | 🔄 进行中 | 文档与 Git 基线已补齐，下一步需落地真实前后端工程并打通登录与对话闭环 |
-| 阶段二：工作流引擎 | ⏳ 待开始 | 依赖阶段一闭环稳定并完成验证 |
+| 阶段一：基础骨架 MVP | 🔄 进行中 | 登录、对话、WebSocket 流式闭环已打通，下一步接入真实 LLM |
+| 阶段二：工作流引擎 | ⏳ 待开始 | 依赖阶段一普通对话稳定 |
 | 阶段三：工具集接入 | ⏳ 待开始 | 依赖阶段二完成 |
 | 阶段四：完善体验 | ⏳ 待开始 | 依赖阶段三完成 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
@@ -49,17 +49,19 @@
 - 验收标准：注册、登录、鉴权接口可用
 
 ### Step 3 — 日志与最小对话后端闭环
-- [ ] `backend/app/utils/logger.py`：配置 loguru，输出控制台与 `logs/`
-- [ ] `backend/app/api/ws.py`：实现 WebSocket 端点与 `ConnectionManager`
-- [ ] 对话与消息接口最小可用，支持消息持久化
-- [ ] 在真实 LLM 接入前，先提供可验证的模拟流式回复
+- [x] `backend/app/utils/logger.py`：配置 loguru，输出控制台与 `logs/`
+- [x] `backend/app/api/ws.py`：实现 WebSocket 端点与 `ConnectionManager`
+- [x] 对话与消息接口最小可用，支持消息持久化
+- [x] 在真实 LLM 接入前，先提供可验证的模拟流式回复
+- [x] Alembic 迁移已补为真实表结构初始化，不依赖启动时自动建表
 - 验收标准：后端可创建对话、保存消息、推送流式消息
 
 ### Step 4 — 前端登录与聊天最小闭环
-- [ ] `frontend/src/pages/Login.tsx`、`frontend/src/stores/authStore.ts`、认证 API 封装
-- [ ] `frontend/src/pages/Chat.tsx`、`ChatWindow.tsx`、`MessageBubble.tsx`、`StreamingText.tsx`
-- [ ] `frontend/src/stores/chatStore.ts`、`frontend/src/hooks/useWebSocket.ts`
-- [ ] 请求错误与 WebSocket 断线均有用户可见提示，自动重连最多 3 次
+- [x] `frontend/src/pages/Login.tsx`、`frontend/src/stores/authStore.ts`、认证 API 封装
+- [x] `frontend/src/pages/Chat.tsx`、`ChatWindow.tsx`、`MessageBubble.tsx`、`StreamingText.tsx`
+- [x] `frontend/src/stores/chatStore.ts`、`frontend/src/hooks/useWebSocket.ts`
+- [x] 请求错误与 WebSocket 断线均有用户可见提示，自动重连最多 3 次
+- [x] 浏览器实测通过 `注册 -> 进入聊天页 -> 发送消息 -> 收到流式回复`
 - 验收标准：用户可登录、进入聊天页、发送消息并看到流式回复
 
 ### Step 5 — LLM 适配层
@@ -77,7 +79,7 @@
 ### Step 7 — 最小项目/历史视图与阶段收尾
 - [ ] `frontend/src/components/layout/TopNav.tsx`、`Sidebar.tsx`、`MainArea.tsx`
 - [ ] `frontend/src/stores/projectStore.ts`：项目与对话列表最小读取和切换
-- [ ] `CHANGELOG.md` 初始化
+- [x] `CHANGELOG.md` 初始化并补充当前阶段记录
 - [ ] 复跑阶段一全部验证命令
 - 验收标准：`登录 -> 进入对话 -> 流式回复 -> 历史持久化 -> 最小列表切换` 全部跑通
 
@@ -130,19 +132,22 @@
 ## 已完成模块
 
 - ✅ 规范与开发引导文档 — 2026-05-12 | AGENTS.md、架构文档、开发引导 Prompt、PROGRESS.md
-- ✅ UI 演示稿 — 2026-05-12 | multi_agent_platform_ui_demo.html
+- ✅ UI 演示稿 — 2026-05-12 | `multi_agent_platform_ui_demo.html`
 - ✅ 项目基础文档体系 — 2026-05-12 | README、API、WebSocket、产品流程、测试与部署文档
-- ✅ GitHub 基础文件与本地 Git 基线 — 2026-05-12 | .env.example、.gitignore、GitHub Actions、git init、dev 分支
+- ✅ 前端规格文档体系 — 2026-05-12 | `DESIGN_SYSTEM.md`、`PAGE_STRUCTURE.md`、`FRONTEND_SPEC.md`
+- ✅ GitHub 基础文件与本地 Git 基线 — 2026-05-12 | `.env.example`、`.gitignore`、GitHub Actions、git init、dev 分支
 - ✅ GitHub 远程备份 — 2026-05-12 | 已连接 `https://github.com/yun23399/Working.git` 并推送到 `origin/dev`
 - ✅ 前后端真实工程骨架 — 2026-05-12 | frontend Vite/React/TS + backend FastAPI/SQLAlchemy/Alembic
 - ✅ 阶段一 Step 1 基础验证 — 2026-05-12 | 前端 lint/build 与后端 ruff/black/alembic/health 通过
 - ✅ 阶段一 Step 2 认证闭环 — 2026-05-12 | 注册、登录、JWT 鉴权与 `/api/auth/me` 实测通过
+- ✅ 阶段一 Step 3 最小对话后端闭环 — 2026-05-12 | 对话、消息、WebSocket、模拟流式回复、日志与迁移实测通过
+- ✅ 阶段一 Step 4 前端最小聊天闭环 — 2026-05-12 | 登录、聊天、日志、流式回复与浏览器实测通过
 
 ---
 
 ## 当前实际目录结构快照
 
-```
+```text
 0000001-1/
 ├── .env.example
 ├── .git/
@@ -162,6 +167,9 @@
 ├── docs/
 │   ├── api-reference.md
 │   ├── deployment.md
+│   ├── DESIGN_SYSTEM.md
+│   ├── FRONTEND_SPEC.md
+│   ├── PAGE_STRUCTURE.md
 │   ├── product-flow.md
 │   ├── testing-and-acceptance.md
 │   └── websocket-protocol.md
@@ -176,6 +184,7 @@
 ├── multi_agent_platform_ui_demo.html
 ├── PROGRESS.md
 ├── README.md
+├── 前端.txt
 └── 多智能体平台_完整架构与开发文档.md
 ```
 
@@ -213,10 +222,6 @@
   1. 当前仓库已初始化本地 Git 仓库
   2. 当前开发分支已切换为 `dev`
   3. 当前仍未绑定 GitHub 远程仓库，后续需补充 remote 后才能 push
-- 下次优先：
-  1. 落地 `frontend/` 真实脚手架
-  2. 落地 `backend/` 真实骨架
-  3. 提交本地初始 commit，并准备绑定 GitHub 远程
 
 ### 2026-05-12 会话 #4
 - 执行内容：连接 GitHub 空仓库并完成首次推送
@@ -226,23 +231,12 @@
   2. 添加 `origin`
   3. 初始提交：`6ba25d0` `📝 docs: 初始化项目文档与 Git 基线`
   4. 推送分支：`dev -> origin/dev`
-- 验证结果：
-  1. 当前分支为 `dev`
-  2. `origin/dev` 已建立跟踪关系
-  3. GitHub 已返回 PR 创建链接
-- 下次优先：
-  1. 创建 `frontend/` 真实工程
-  2. 创建 `backend/` 真实工程
-  3. 每个阶段性结果继续推送到 `origin/dev`
 
 ### 2026-05-12 会话 #5
 - 执行内容：按用户要求更新 Git 规范，新增“每次执行完成后推送到 GitHub 仓库”的强制规则
 - 修改文件：
   1. `AGENTS.md`
   2. `PROGRESS.md`
-- 规则说明：
-  1. 继续禁止直接推送到 `main`
-  2. 默认每次执行完成后推送当前开发分支到 `https://github.com/yun23399/Working`
 
 ### 2026-05-12 会话 #6
 - 执行内容：落地阶段一真实前后端工程骨架并完成 Step 1 基础验证
@@ -250,22 +244,10 @@
   1. `frontend/`
   2. `backend/`
   3. `backend/data/`
-- 关键结果：
-  1. 前端已切换为 React 18 + TypeScript 5 + Vite 结构
-  2. 前端已补齐 Tailwind、React Router、React Query、Zustand、i18n 基础骨架
-  3. 后端已落地 FastAPI、SQLAlchemy、Alembic 基础骨架
-  4. Alembic 初始迁移已执行成功，生成 `data/app.db`
-  5. 后端健康检查 `http://127.0.0.1:8001/health` 返回 `200`
 - 验证结果：
   1. `frontend`: `npm install`、`npm run lint`、`npm run build` 通过
   2. `backend`: `pip install -r requirements.txt`、`python -m ruff check .`、`python -m black --check .`、`alembic upgrade head` 通过
-- 遗留说明：
-  1. 本机 `127.0.0.1:8000` 已被其他 `uvicorn --reload` 进程占用，因此本轮启动验证使用 `8001`
-  2. 当前仍未进入认证、WebSocket、LLM 逻辑实现
-- 下次优先：
-  1. 实现真实 JWT / bcrypt 认证闭环
-  2. 落地认证 API 与 `deps.py`
-  3. 开始最小对话后端闭环
+  3. `http://127.0.0.1:8001/health` 返回 `200`
 
 ### 2026-05-12 会话 #7
 - 执行内容：完成阶段一 Step 2 后端真实认证闭环
@@ -276,21 +258,42 @@
   4. `backend/app/services/auth_service.py`
   5. `backend/app/api/deps.py`
   6. `backend/app/api/auth.py`
-- 修改文件：
-  1. `backend/app/main.py`
-  2. `backend/app/config.py`
-  3. `backend/app/models/__init__.py`
-  4. `backend/app/schemas/__init__.py`
-  5. `backend/app/services/__init__.py`
 - 验证结果：
   1. `python -m ruff check .` 通过
   2. `python -m black --check .` 通过
-  3. 临时启动 `127.0.0.1:8002` 后，`/api/auth/register`、`/api/auth/login`、`/api/auth/me` 实测通过
-  4. 注册用户 `alice`、登录返回 `bearer`、携带 JWT 可成功读取当前用户
-- 下次优先：
-  1. 实现 `logger.py`
-  2. 落地 WebSocket 端点与连接管理器
-  3. 开始最小对话后端闭环
+  3. `/api/auth/register`、`/api/auth/login`、`/api/auth/me` 实测通过
+
+### 2026-05-12 会话 #8
+- 执行内容：完成阶段一 Step 3 最小对话后端闭环与 Step 4 前端最小聊天闭环
+- 新增后端文件：
+  1. `backend/app/utils/logger.py`
+  2. `backend/app/models/conversation.py`
+  3. `backend/app/models/message.py`
+  4. `backend/app/schemas/conversation.py`
+  5. `backend/app/services/conversation_service.py`
+  6. `backend/app/api/conversations.py`
+  7. `backend/app/api/ws.py`
+  8. `backend/alembic/versions/20260512_000002_add_core_tables.py`
+- 新增前端文件：
+  1. `frontend/src/api/auth.ts`
+  2. `frontend/src/api/conversations.ts`
+  3. `frontend/src/types/auth.ts`
+  4. `frontend/src/types/chat.ts`
+  5. `frontend/src/hooks/useWebSocket.ts`
+- 关键改造：
+  1. 后端新增统一错误响应处理
+  2. 后端新增真实 CORS 配置
+  3. WebSocket 新增对话归属校验
+  4. 对话消息会刷新 `updated_at`
+  5. 前端接入真实登录、对话列表、消息流和日志流
+  6. 前端支持 WebSocket 自动重连 3 次
+- 验证结果：
+  1. `frontend`: `npm run lint`、`npm run build` 通过
+  2. `backend`: `python -m ruff check .`、`python -m black --check .`、`alembic upgrade head` 通过
+  3. 使用临时数据库和端口实测：注册 `201`、登录 `200`、创建对话 `201`、聊天 `200`、消息查询 `200`
+  4. WebSocket 事件序列实测通过：`log -> agent_status -> log -> token -> ... -> agent_status(done)`
+  5. 浏览器联调实测通过：`/login -> /chat -> 发送消息 -> 收到流式回复`
+  6. 使用 `httpx.AsyncClient(trust_env=False)` 避免本地代理导致的误判
 
 ---
 
@@ -298,9 +301,7 @@
 
 | 编号 | 描述 | 状态 | 优先级 |
 |------|------|------|--------|
-| #001 | 当前仓库缺少前后端真实代码目录，与旧进度记录不一致 | ✅ 已解决 | 高 |
-| #002 | `files.zip` 不包含前后端工程代码，仅包含文档文件 | ⚠️ 已确认 | 高 |
-| #003 | 阶段一必须先完成状态对齐与依赖验证，认证 / 对话 / LLM 才能继续推进 | ✅ 已完成前两项 | 高 |
-| #004 | 当前仓库尚未落地 `frontend/` 与 `backend/` 实体工程，GitHub 上仍只有文档与基线文件 | ✅ 已解决 | 高 |
-| #006 | 本机 `127.0.0.1:8000` 已被其他 `uvicorn --reload` 进程占用，后续本项目本地联调需避开该端口或先确认归属 | ⚠️ 已确认 | 中 |
+| #002 | `files.zip` 不包含前后端工程代码，仅包含文档文件 | ⚠️ 已确认 | 中 |
 | #005 | 本机未发现 `gh`，若后续需要 CLI 创建仓库或发 PR，需先安装并登录 GitHub CLI | ⏳ 待处理 | 中 |
+| #006 | 本机 `127.0.0.1:8000` 已被其他 `uvicorn --reload` 进程占用，后续本项目联调需避开该端口或先确认归属 | ⚠️ 已确认 | 中 |
+| #007 | 当前聊天仍使用模拟流式回复，真实 LLM 接入尚未开始 | ⏳ 待处理 | 高 |
