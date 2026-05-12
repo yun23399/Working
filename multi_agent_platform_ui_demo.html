@@ -1,0 +1,209 @@
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.app{display:grid;grid-template-columns:220px 1fr;grid-template-rows:44px 1fr;height:640px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary);font-family:var(--font-sans)}
+.topnav{grid-column:1/-1;display:flex;align-items:center;padding:0 14px;gap:10px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
+.topnav-logo{font-size:14px;font-weight:500;color:var(--color-text-primary);flex:1}
+.topnav-logo span{color:var(--color-text-tertiary);font-weight:400}
+.nav-btn{background:none;border:none;cursor:pointer;padding:5px;border-radius:var(--border-radius-md);color:var(--color-text-secondary);font-size:17px;display:flex;align-items:center}
+.nav-btn:hover{background:var(--color-background-secondary)}
+.sidebar{border-right:0.5px solid var(--color-border-tertiary);display:flex;flex-direction:column;background:var(--color-background-secondary);overflow:hidden}
+.sidebar-section{padding:10px 10px 4px;font-size:11px;color:var(--color-text-tertiary);letter-spacing:.04em}
+.sidebar-item{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:13px;cursor:pointer;color:var(--color-text-secondary);border-radius:0;transition:background .1s}
+.sidebar-item:hover{background:var(--color-background-primary)}
+.sidebar-item.active{background:var(--color-background-primary);color:var(--color-text-primary);font-weight:500}
+.sidebar-item i{font-size:15px;flex-shrink:0}
+.sidebar-item .badge{margin-left:auto;font-size:10px;padding:1px 6px;border-radius:20px;background:var(--color-background-info);color:var(--color-text-info)}
+.new-btn{margin:8px 10px;padding:7px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:none;cursor:pointer;font-size:13px;color:var(--color-text-secondary);display:flex;align-items:center;gap:6px;width:calc(100% - 20px)}
+.new-btn:hover{background:var(--color-background-primary)}
+.main{display:flex;flex-direction:column;overflow:hidden}
+.chat-area{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:12px}
+.msg{display:flex;gap:10px;align-items:flex-start;max-width:90%}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+.avatar.manager{background:var(--color-background-info);color:var(--color-text-info)}
+.avatar.user{background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-secondary)}
+.avatar.fe{background:#EEEDFE;color:#3C3489}
+.avatar.be{background:#E1F5EE;color:#085041}
+.avatar.qa{background:#FAEEDA;color:#633806}
+.bubble{padding:9px 13px;border-radius:var(--border-radius-lg);font-size:13px;line-height:1.6;color:var(--color-text-primary);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
+.bubble.user{background:var(--color-background-secondary);border-color:var(--color-border-tertiary)}
+.bubble-name{font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px}
+.typing span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--color-text-tertiary);animation:blink 1.2s infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.workflow-card{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:12px 14px;background:var(--color-background-secondary);font-size:13px;margin-top:4px}
+.wf-title{font-weight:500;font-size:13px;color:var(--color-text-primary);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.wf-nodes{display:flex;flex-direction:column;gap:6px}
+.wf-node{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
+.wf-node-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.wf-node-name{font-weight:500;font-size:12px;flex:1}
+.wf-node-task{font-size:11px;color:var(--color-text-secondary)}
+.wf-node-status{font-size:11px;padding:2px 7px;border-radius:20px}
+.status-done{background:#EAF3DE;color:#27500A}
+.status-running{background:#E6F1FB;color:#0C447C}
+.status-wait{background:var(--color-background-secondary);color:var(--color-text-tertiary)}
+.wf-actions{display:flex;gap:8px;margin-top:10px}
+.wf-btn{flex:1;padding:7px;border-radius:var(--border-radius-md);font-size:12px;cursor:pointer;border:0.5px solid var(--color-border-secondary);background:none;color:var(--color-text-secondary)}
+.wf-btn.primary{background:var(--color-text-primary);color:var(--color-background-primary);border-color:var(--color-text-primary)}
+.wf-btn:hover{opacity:.85}
+.log-strip{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);padding:8px 10px;font-size:11px;font-family:var(--font-mono);color:var(--color-text-secondary);margin-top:4px}
+.log-line{line-height:1.7}
+.log-info{color:var(--color-text-info)}
+.log-success{color:var(--color-text-success)}
+.log-warn{color:var(--color-text-warning)}
+.code-block{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-secondary);overflow:hidden;margin-top:4px}
+.code-header{padding:6px 10px;border-bottom:0.5px solid var(--color-border-tertiary);font-size:11px;color:var(--color-text-secondary);display:flex;align-items:center;gap:6px}
+.code-body{padding:10px;font-family:var(--font-mono);font-size:11px;color:var(--color-text-primary);line-height:1.7;white-space:pre}
+.kw{color:#534AB7}.fn{color:#0F6E56}.str{color:#854F0B}.cm{color:var(--color-text-tertiary)}
+.input-area{padding:10px 14px;border-top:0.5px solid var(--color-border-tertiary);display:flex;gap:8px;align-items:flex-end}
+.input-area textarea{flex:1;resize:none;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:8px 10px;font-size:13px;font-family:var(--font-sans);color:var(--color-text-primary);background:var(--color-background-primary);height:36px;line-height:1.5}
+.send-btn{width:34px;height:34px;border-radius:var(--border-radius-md);background:var(--color-text-primary);color:var(--color-background-primary);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.token-bar{display:flex;align-items:center;gap:6px;padding:4px 14px 0;font-size:11px;color:var(--color-text-tertiary)}
+.token-dot{width:5px;height:5px;border-radius:50%;background:var(--color-text-tertiary)}
+.scene-tabs{display:flex;gap:4px;padding:8px 14px 0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.stab{padding:5px 12px;font-size:12px;cursor:pointer;border-radius:var(--border-radius-md) var(--border-radius-md) 0 0;color:var(--color-text-secondary);border:0.5px solid transparent;border-bottom:none;background:none}
+.stab.active{color:var(--color-text-primary);border-color:var(--color-border-secondary);background:var(--color-background-primary);font-weight:500}
+</style>
+
+<h2 class="sr-only">多智能体编排平台界面预览，可切换不同场景查看效果</h2>
+
+<div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+  <button class="stab active" onclick="showScene(0,this)">需求对话</button>
+  <button class="stab" onclick="showScene(1,this)">工作流确认</button>
+  <button class="stab" onclick="showScene(2,this)">Agent 执行中</button>
+  <button class="stab" onclick="showScene(3,this)">代码产出</button>
+</div>
+
+<div class="app" id="app">
+  <div class="topnav">
+    <span class="topnav-logo">AgentFlow <span>/ 电商网站项目</span></span>
+    <button class="nav-btn" aria-label="搜索"><i class="ti ti-search"></i></button>
+    <button class="nav-btn" aria-label="通知"><i class="ti ti-bell"></i></button>
+    <button class="nav-btn" aria-label="设置"><i class="ti ti-settings"></i></button>
+    <button class="nav-btn" aria-label="用户"><i class="ti ti-user"></i></button>
+  </div>
+  <div class="sidebar">
+    <button class="new-btn"><i class="ti ti-plus" style="font-size:14px"></i> 新建对话</button>
+    <div class="sidebar-section">项目</div>
+    <div class="sidebar-item active"><i class="ti ti-folder"></i> 电商网站项目</div>
+    <div class="sidebar-item"><i class="ti ti-folder"></i> 内容运营助手</div>
+    <div class="sidebar-item"><i class="ti ti-folder"></i> 数据分析看板</div>
+    <div class="sidebar-section" style="margin-top:6px">历史对话</div>
+    <div class="sidebar-item active"><i class="ti ti-message"></i> 商品页开发 <span class="badge">进行中</span></div>
+    <div class="sidebar-item"><i class="ti ti-message"></i> 首页 Banner 设计</div>
+    <div class="sidebar-item"><i class="ti ti-message"></i> 购物车逻辑</div>
+    <div class="sidebar-item"><i class="ti ti-message"></i> SEO 优化方案</div>
+  </div>
+  <div class="main" id="main-content">
+    <div class="token-bar"><div class="token-dot"></div> 本次会话 · 2,847 tokens</div>
+    <div class="chat-area" id="chat-area"></div>
+    <div class="input-area">
+      <textarea placeholder="输入消息..." id="msg-input"></textarea>
+      <button class="send-btn" aria-label="发送"><i class="ti ti-arrow-up"></i></button>
+    </div>
+  </div>
+</div>
+
+<script>
+const scenes = [
+  [
+    {role:'manager',name:'Manager',text:'你好！我是你的 AI 管理员。请告诉我你想完成什么任务，我会帮你规划并安排合适的 Agent 团队来执行。'},
+    {role:'user',text:'帮我做一个电商商品详情页，需要有图片展示、价格、加入购物车功能'},
+    {role:'manager',name:'Manager',text:'好的，我来了解一下需求细节。请问：\n\n1. 技术栈有偏好吗？（React / Vue / 原生 HTML）\n2. 需要对接真实的购物车 API，还是先做前端交互效果？\n3. 有设计稿或参考网站吗？'},
+    {role:'user',text:'用 React，先做前端效果，参考淘宝的商品页风格'},
+    {role:'manager',name:'Manager',text:'明白了，我已经充分了解你的需求。我将为这个任务创建工作流，安排以下 Agent 团队：前端开发者负责组件开发，UI 设计师负责样式细节，测试员负责功能验收。\n\n稍等，正在生成工作流计划...'},
+  ],
+  [
+    {role:'user',text:'帮我做一个电商商品详情页，React，参考淘宝风格'},
+    {role:'manager',name:'Manager',text:'需求已明确，我为这个任务规划了以下工作流，请确认后开始执行：',workflow:true},
+  ],
+  [
+    {role:'manager',name:'Manager',text:'工作流已启动，各 Agent 开始并行执行任务。'},
+    {role:'fe',name:'前端开发者',text:'正在创建商品详情页组件结构...',log:true},
+    {role:'be',name:'UI 设计师',text:'组件已完成，正在移交给 UI 设计师进行样式优化。',typing:false},
+    {role:'qa',name:'测试员',text:'',typing:true},
+  ],
+  [
+    {role:'manager',name:'Manager',text:'所有 Agent 已完成任务，商品详情页已生成。以下是前端开发者产出的核心组件：'},
+    {role:'fe',name:'前端开发者',text:'ProductDetail 组件已完成，包含图片轮播、价格展示和购物车功能：',code:true},
+  ],
+];
+
+function showScene(idx, btn) {
+  document.querySelectorAll('.stab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderScene(scenes[idx]);
+}
+
+function renderScene(msgs) {
+  const area = document.getElementById('chat-area');
+  area.innerHTML = '';
+  msgs.forEach(m => {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg' + (m.role==='user' ? ' user' : '');
+    const av = document.createElement('div');
+    av.className = 'avatar ' + (m.role==='user' ? 'user' : m.role==='fe' ? 'fe' : m.role==='be' ? 'be' : m.role==='qa' ? 'qa' : 'manager');
+    av.textContent = m.role==='user' ? '我' : m.role==='fe' ? 'FE' : m.role==='be' ? 'UI' : m.role==='qa' ? 'QA' : 'M';
+    const col = document.createElement('div');
+    col.style.cssText = 'display:flex;flex-direction:column;gap:3px;max-width:calc(100% - 40px)';
+    if(m.name && m.role!=='user'){const nm=document.createElement('div');nm.className='bubble-name';nm.textContent=m.name;col.appendChild(nm);}
+    if(m.typing){
+      const b=document.createElement('div');b.className='bubble';
+      b.innerHTML='<div class="typing"><span></span><span></span><span></span></div>';
+      col.appendChild(b);
+    } else if(m.text) {
+      const b=document.createElement('div');b.className='bubble'+(m.role==='user'?' user':'');
+      b.textContent=m.text;col.appendChild(b);
+    }
+    if(m.workflow){
+      const wf=document.createElement('div');wf.className='workflow-card';
+      wf.innerHTML=`<div class="wf-title"><i class="ti ti-layout-list" style="font-size:14px"></i> 工作流计划 — 商品详情页</div>
+      <div class="wf-nodes">
+        <div class="wf-node"><div class="wf-node-dot" style="background:#7F77DD"></div><div><div class="wf-node-name">前端开发者</div><div class="wf-node-task">React 组件开发、购物车逻辑</div></div><span class="wf-node-status status-wait">待执行</span></div>
+        <div class="wf-node"><div class="wf-node-dot" style="background:#1D9E75"></div><div><div class="wf-node-name">UI 设计师</div><div class="wf-node-task">Tailwind 样式、响应式布局</div></div><span class="wf-node-status status-wait">待执行</span></div>
+        <div class="wf-node"><div class="wf-node-dot" style="background:#BA7517"></div><div><div class="wf-node-name">测试员</div><div class="wf-node-task">交互功能验收、边界测试</div></div><span class="wf-node-status status-wait">待执行</span></div>
+      </div>
+      <div class="wf-actions"><button class="wf-btn">修改计划</button><button class="wf-btn primary">确认执行</button></div>`;
+      col.appendChild(wf);
+    }
+    if(m.log){
+      const lg=document.createElement('div');lg.className='log-strip';
+      lg.innerHTML=`<div class="log-line"><span class="log-info">[INFO]</span> 创建 ProductDetail.tsx 组件文件</div>
+<div class="log-line"><span class="log-info">[INFO]</span> 调用 file_tool 写入 src/components/ProductDetail.tsx</div>
+<div class="log-line"><span class="log-success">[DONE]</span> 图片轮播组件完成（ImageCarousel）</div>
+<div class="log-line"><span class="log-success">[DONE]</span> 价格展示组件完成（PriceDisplay）</div>
+<div class="log-line"><span class="log-info">[INFO]</span> 正在实现购物车按钮逻辑...</div>`;
+      col.appendChild(lg);
+    }
+    if(m.code){
+      const cd=document.createElement('div');cd.className='code-block';
+      cd.innerHTML=`<div class="code-header"><i class="ti ti-file-code" style="font-size:13px"></i> ProductDetail.tsx <span style="margin-left:auto;cursor:pointer;color:var(--color-text-info)"><i class="ti ti-download" style="font-size:13px"></i> 导出</span></div>
+<div class="code-body"><span class="kw">import</span> <span class="fn">React</span>, { useState } <span class="kw">from</span> <span class="str">'react'</span>
+<span class="kw">import</span> { ImageCarousel } <span class="kw">from</span> <span class="str">'./ImageCarousel'</span>
+
+<span class="cm">// 商品详情页主组件</span>
+<span class="kw">export const</span> <span class="fn">ProductDetail</span> = ({ product }) => {
+  <span class="kw">const</span> [qty, setQty] = <span class="fn">useState</span>(1)
+  <span class="kw">const</span> <span class="fn">addToCart</span> = () => {
+    <span class="cm">// 加入购物车逻辑</span>
+    cart.<span class="fn">add</span>(product.id, qty)
+  }
+  <span class="kw">return</span> (
+    &lt;div className=<span class="str">"product-detail"</span>&gt;
+      &lt;<span class="fn">ImageCarousel</span> images={product.images} /&gt;
+      &lt;h1&gt;{product.name}&lt;/h1&gt;
+      &lt;span className=<span class="str">"price"</span>&gt;¥{product.price}&lt;/span&gt;
+    &lt;/div&gt;
+  )
+}</div>`;
+      col.appendChild(cd);
+    }
+    wrap.appendChild(av);wrap.appendChild(col);
+    area.appendChild(wrap);
+  });
+  area.scrollTop = area.scrollHeight;
+}
+
+renderScene(scenes[0]);
+</script>

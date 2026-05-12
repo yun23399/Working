@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required docs
+        run: |
+          test -f AGENTS.md
+          test -f PROGRESS.md
+          test -f README.md
+          test -f docs/api-reference.md
+          test -f docs/websocket-protocol.md
+          test -f docs/product-flow.md
+          test -f docs/testing-and-acceptance.md
+          test -f docs/deployment.md
