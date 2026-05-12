@@ -74,14 +74,38 @@ class RequirementExtractor:
         combined_text = "\n".join(user_messages)
         output_types: list[str] = []
         if any(
-            keyword in combined_text for keyword in ("页面", "前端", "界面", "网页")
+            keyword.lower() in combined_text.lower()
+            for keyword in (
+                "页面",
+                "前端",
+                "界面",
+                "网页",
+                "frontend",
+                "page",
+                "ui",
+                "web",
+            )
         ):
             output_types.append("code")
         if any(
-            keyword in combined_text for keyword in ("文档", "说明", "流程", "方案")
+            keyword.lower() in combined_text.lower()
+            for keyword in (
+                "文档",
+                "说明",
+                "流程",
+                "方案",
+                "document",
+                "docs",
+                "flow",
+                "plan",
+                "spec",
+            )
         ):
             output_types.append("document")
-        if any(keyword in combined_text for keyword in ("图片", "图", "设计")):
+        if any(
+            keyword.lower() in combined_text.lower()
+            for keyword in ("图片", "图", "设计", "image", "design", "visual")
+        ):
             output_types.append("image")
         if not output_types:
             output_types.append("document")

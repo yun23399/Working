@@ -90,32 +90,84 @@ class WorkflowPlanner:
     def needs_frontend(self, context_text: str, output_types: list[str]) -> bool:
         """判断当前需求是否需要前端模板参与"""
 
-        keywords = ("前端", "页面", "界面", "网页", "交互", "组件")
+        normalized_text = context_text.lower()
+        keywords = (
+            "前端",
+            "页面",
+            "界面",
+            "网页",
+            "交互",
+            "组件",
+            "frontend",
+            "page",
+            "ui",
+            "web",
+            "component",
+        )
         return "code" in output_types or any(
-            keyword in context_text for keyword in keywords
+            keyword.lower() in normalized_text for keyword in keywords
         )
 
     def needs_backend(self, context_text: str, output_types: list[str]) -> bool:
         """判断当前需求是否需要后端模板参与"""
 
-        keywords = ("后端", "接口", "API", "数据库", "服务", "流程", "执行")
+        normalized_text = context_text.lower()
+        keywords = (
+            "后端",
+            "接口",
+            "API",
+            "数据库",
+            "服务",
+            "流程",
+            "执行",
+            "backend",
+            "service",
+            "database",
+            "api",
+        )
         return "code" in output_types or any(
-            keyword in context_text for keyword in keywords
+            keyword.lower() in normalized_text for keyword in keywords
         )
 
     def needs_design(self, context_text: str, output_types: list[str]) -> bool:
         """判断当前需求是否需要设计模板参与"""
 
-        keywords = ("设计", "视觉", "风格", "排版", "布局", "原型")
+        normalized_text = context_text.lower()
+        keywords = (
+            "设计",
+            "视觉",
+            "风格",
+            "排版",
+            "布局",
+            "原型",
+            "design",
+            "visual",
+            "layout",
+            "prototype",
+        )
         return "image" in output_types or any(
-            keyword in context_text for keyword in keywords
+            keyword.lower() in normalized_text for keyword in keywords
         )
 
     def needs_quality(self, context_text: str) -> bool:
         """判断当前需求是否需要测试模板参与"""
 
-        keywords = ("测试", "验收", "验证", "回归", "质量", "风险")
-        return any(keyword in context_text for keyword in keywords)
+        normalized_text = context_text.lower()
+        keywords = (
+            "测试",
+            "验收",
+            "验证",
+            "回归",
+            "质量",
+            "风险",
+            "test",
+            "qa",
+            "acceptance",
+            "verify",
+            "regression",
+            "risk",
+        )
+        return any(keyword.lower() in normalized_text for keyword in keywords)
 
     def build_node_task(
         self,

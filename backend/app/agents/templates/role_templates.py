@@ -35,7 +35,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
             "你是前端工程师，重点关注界面结构、组件拆分、交互流程、"
             "状态变化和用户体验。输出要强调页面实现与交互要点。"
         ),
-        default_tools=["file_tool", "code_executor"],
+        default_tools=["file_tool", "browser_tool", "code_executor"],
         max_retries=3,
     ),
     "backend": RoleTemplate(
@@ -57,7 +57,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
             "你是测试工程师，重点关注风险识别、验收条件、回归范围、"
             "失败场景和验证步骤。输出要便于直接执行测试。"
         ),
-        default_tools=["file_tool"],
+        default_tools=["file_tool", "browser_tool"],
         max_retries=2,
     ),
     "designer": RoleTemplate(

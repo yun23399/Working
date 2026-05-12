@@ -29,6 +29,7 @@
 21. 代码执行工具与真实产物回传链路可用
 22. 文件工具与真实文本产物回传链路可用
 23. 外部 API 工具与真实响应产物回传链路可用
+24. 浏览器工具与真实截图/页面元数据回传链路可用
 
 ## 建议命令
 
@@ -229,6 +230,20 @@ python -m playwright install chromium
   `workspace/projects/conversation_41/workflow_41/artifacts/`
 - `api_response.json` 内包含请求地址 `http://127.0.0.1:8000/health`、状态码 `200` 与响应体
 
+### 用例 17：阶段三浏览器工具链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- 2026-05-13 工具级实测通过：`BrowserTool.execute()` 可访问 `http://127.0.0.1:5173/login`
+- 2026-05-13 Agent 级实测通过：前端模板可回传 `browser_snapshot.png` 与 `browser_result.json`
+- 2026-05-13 工作流级实测通过：`conversation_48 / workflow_47` 执行完成后，`workspace.artifacts` 返回
+  `frontend_snapshot.png`、`frontend_browser_result.json`、`qa_snapshot.png` 与 `qa_browser_result.json`
+- 真实文件已落盘到
+  `workspace/projects/conversation_48/workflow_47/artifacts/`
+- `frontend_browser_result.json` 与 `qa_browser_result.json` 内包含访问地址、页面标题 `AgentFlow` 与状态码 `200`
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -264,4 +279,5 @@ httpx.AsyncClient(trust_env=False)
 9. `workspace.artifacts` 是否仍能返回真实产物文件
 10. `file_tool` 生成的 `.md` 产物是否仍能进入节点 artifacts
 11. `api_caller` 生成的 `api_response.json` 是否仍能进入节点 artifacts
-12. 文档是否仍与实现一致
+12. `browser_tool` 生成的截图与元数据是否仍能进入节点 artifacts
+13. 文档是否仍与实现一致

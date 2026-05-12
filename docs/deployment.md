@@ -38,6 +38,7 @@ DATABASE_URL=sqlite:///./data/app.db
 JWT_SECRET_KEY=
 APP_HOST=127.0.0.1
 APP_PORT=8000
+FRONTEND_APP_URL=http://127.0.0.1:5173
 CORS_ALLOW_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5174,http://localhost:5174,http://127.0.0.1:4173,http://localhost:4173
 ```
 
@@ -46,6 +47,11 @@ CORS_ALLOW_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
+
+说明：
+
+- `FRONTEND_APP_URL` 用于后端工作流中的 `browser_tool` 访问前端页面并生成截图
+- 若前端不跑在 `5173`，需要同步更新 `FRONTEND_APP_URL` 与 `VITE_API_BASE_URL`
 
 ## 4. 本地启动建议
 

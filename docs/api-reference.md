@@ -602,6 +602,7 @@ Authorization: Bearer <access_token>
 - 当前 `pm` / `qa` / `designer` 等模板命中 `file_tool` 时，会在 `artifacts/` 下真实生成 `.md` 摘要文件
 - 当前 `backend` 模板命中 `api_caller` 时，会在 `artifacts/` 下真实生成 `api_response.json`
 - 当前 `backend` 与 `frontend` 模板命中 `code_executor` 时，会在 `artifacts/` 下真实生成计划文件
+- 当前 `frontend` 与 `qa` 模板命中 `browser_tool` 时，会在 `artifacts/` 下真实生成截图与浏览器结果文件
 - 同一对话下的多条工作流会共用 `workspace/projects/conversation_<id>/project_memory.json`
 - 节点间交接会写入 `handoff_logs` 与 `context/handoff_log.json`
 - 节点完成后会把摘要沉淀到 `project_memory.key_points`
@@ -612,6 +613,7 @@ Authorization: Bearer <access_token>
 - 2026-05-13 实测通过：`workspace.artifacts` 可同时返回 `backend_plan.json` 与 `code_execution_result.json`
 - 2026-05-13 实测通过：`workspace.artifacts` 可同时返回 `pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
 - 2026-05-13 实测通过：`workspace.artifacts` 可同时返回 `api_response.json`、`pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
+- 2026-05-13 实测通过：`conversation_48 / workflow_47` 执行完成后，`workspace.artifacts` 可同时返回 `frontend_snapshot.png`、`frontend_browser_result.json`、`qa_snapshot.png` 与 `qa_browser_result.json`
 
 错误码：
 

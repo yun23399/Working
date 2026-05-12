@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #19）
+> 更新者：Codex（会话 #23）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段三：工具集接入（已完成 code_executor 最小真实链路，阶段二能力已全部打通）**
+**⏳ 阶段三：工具集接入（已完成 code_executor / file_tool / api_caller / browser_tool 最小真实链路，阶段二能力已全部打通）**
 
 ---
 
@@ -107,7 +107,7 @@
 - [x] 代码执行工具（code_executor.py）
 - [x] 文件读写工具（file_tool.py）
 - [x] 外部 API 调用工具（api_caller.py）
-- [ ] Playwright 浏览器自动化工具（browser_tool.py）
+- [x] Playwright 浏览器自动化工具（browser_tool.py）
 - [ ] 图像生成工具（image_tool.py）
 - [ ] 代码预览组件（CodePreview.tsx）
 - [ ] 图片预览组件（ImagePreview.tsx）
@@ -158,6 +158,7 @@
 - ✅ 阶段三代码执行工具链路 — 2026-05-13 | 工作流已支持最小受限 `python` / `node` 执行、真实计划产物落盘与产物路径回传
 - ✅ 阶段三文件读写工具链路 — 2026-05-13 | 工作流已支持在共享工作区安全写入文本摘要，并将 `.md` 产物回传到执行结果
 - ✅ 阶段三外部 API 调用工具链路 — 2026-05-13 | 工作流已支持受限 HTTP 调用、响应落盘与 `api_response.json` 产物回传
+- ✅ 阶段三浏览器自动化工具链路 — 2026-05-13 | 工作流已支持受限页面访问、截图落盘与 `browser_result.json` / `snapshot.png` 产物回传
 
 ---
 
@@ -551,6 +552,24 @@
   2. `frontend`: `npm run lint`、`npm run build` 通过
   3. API 实测通过：`conversation_41 / workflow_41` 执行完成后，`workspace.artifacts` 返回 `api_response.json`、`pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
   4. API 实测通过：`workspace/projects/conversation_41/workflow_41/artifacts/api_response.json` 已落盘，并包含 `/health` 返回 `200`
+
+### 2026-05-13 会话 #23
+- 执行内容：完成阶段三 `browser_tool` 最小真实链路
+- 新增后端文件：
+  1. `backend/app/tools/browser_tool.py`
+- 关键改造：
+  1. `backend/app/tools/__init__.py` 新增 `BrowserTool` 与 `BrowserToolError` 导出
+  2. `backend/app/agents/templates/role_templates.py` 为前端与测试模板接入 `browser_tool`
+  3. `backend/app/agents/agent_runner.py` 接入 `BrowserTool`，并按当前前后端地址生成页面校验指令
+  4. `backend/app/config.py` 新增 `frontend_app_url` 配置项，用于统一前端访问地址
+  5. `browser_tool.py` 改为通过独立 Python 子进程执行 Playwright，规避 Windows 下 `uvicorn --reload` 工作流进程中的浏览器子进程限制
+  6. `requirement_extractor.py` 与 `workflow_planner.py` 补充英文关键词识别，确保英文页面/测试需求也能命中前端与测试模板
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. 工具级实测通过：`workspace/manual_browser_subprocess_test/artifacts/` 已生成 `manual_browser_subprocess.png` 与 `manual_browser_subprocess.json`
+  3. Agent 级实测通过：`workspace/manual_agent_browser_subprocess_test/artifacts/` 已生成浏览器截图、元数据、摘要和执行结果文件
+  4. API 实测通过：`conversation_48 / workflow_47` 执行完成后，`workspace.artifacts` 返回 `frontend_snapshot.png`、`frontend_browser_result.json`、`qa_snapshot.png` 与 `qa_browser_result.json`
+  5. API 实测通过：`frontend_browser_result.json` 与 `qa_browser_result.json` 已落盘，并包含页面标题 `AgentFlow` 与状态码 `200`
 
 ---
 

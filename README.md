@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-当前仓库已完成阶段一闭环，并进入阶段三的首个可用增量：
+当前仓库已完成阶段一闭环，并进入阶段三的可用增量：
 
 1. 用户注册与登录
 2. JWT 鉴权与当前用户恢复
@@ -42,10 +42,11 @@
 7. 后端模板命中 `api_caller` 时，会在共享工作区真实生成 `api_response.json`
 8. 后端或前端模板命中 `code_executor` 时，会在共享工作区真实生成计划产物
 9. 当前接口返回的 `workspace.artifacts` 会同步包含执行结果文件和真实业务产物
+10. 前端与测试模板命中 `browser_tool` 时，会在共享工作区真实生成页面截图和浏览器访问元数据
 
 当前下一步目标：
 
-1. 扩展 `file_tool`、`api_caller`、`browser_tool` 等后续工具
+1. 继续扩展 `image_tool` 等后续工具能力
 2. 补齐前端产出物预览组件与导出链路
 3. 继续增强工具执行上下文、权限边界与验收展示
 
@@ -125,6 +126,8 @@ docs/       接口、流程、部署、前端规格文档
 - `artifacts/pm_summary.md` / `backend_summary.md` / `frontend_summary.md`：文件工具生成的角色摘要产物
 - `artifacts/api_response.json`：外部接口调用工具记录的请求地址、状态码和响应体
 - `artifacts/backend_plan.json` / `artifacts/frontend_plan.json`：当前最小工具链路生成的计划产物
+- `artifacts/frontend_snapshot.png` / `artifacts/qa_snapshot.png`：浏览器工具生成的页面截图
+- `artifacts/frontend_browser_result.json` / `artifacts/qa_browser_result.json`：浏览器工具记录的访问结果元数据
 - `context/workspace_state.json`：当前工作区状态快照
 - `context/handoff_log.json`：节点间交接记录
 - `workflow_runs`：工作流运行快照、控制信号与断点状态表

@@ -5,10 +5,13 @@ from pathlib import Path
 
 from app.agents.base_agent import AgentResult, AgentTask, BaseAgent
 from app.agents.templates import get_role_template
+from app.config import settings
 from app.core.llm.adapter import ChatMessage, LLMAdapter
 from app.tools import (
     ApiCallerError,
     ApiCallerTool,
+    BrowserTool,
+    BrowserToolError,
     CodeExecutionError,
     CodeExecutorTool,
     FileTool,
@@ -32,6 +35,7 @@ class GenericTaskAgent(BaseAgent):
         self.adapter = LLMAdapter()
         self.template = get_role_template(template_id)
         self.api_caller = ApiCallerTool()
+        self.browser_tool = BrowserTool()
         self.file_tool = FileTool()
         self.code_executor = CodeExecutorTool()
 
@@ -140,6 +144,38 @@ class GenericTaskAgent(BaseAgent):
             ensure_ascii=False,
         )
 
+    def build_browser_tool_instruction(self, task: AgentTask) -> str:
+        """根据当前节点构造浏览器访问指令，用于页面可达性验证和截图归档"""
+
+        backend_base_url = f"http://{settings.app_host}:{settings.app_port}"
+        screenshot_name_map = {
+            "前端工程师": "frontend_snapshot.png",
+            "测试工程师": "qa_snapshot.png",
+        }
+        metadata_name_map = {
+            "前端工程师": "frontend_browser_result.json",
+            "测试工程师": "qa_browser_result.json",
+        }
+        return json.dumps(
+            {
+                "url_candidates": [
+                    f"{settings.frontend_app_url.rstrip('/')}/login",
+                    f"{backend_base_url}/docs",
+                    f"{backend_base_url}/health",
+                ],
+                "wait_selector": "",
+                "screenshot_name": screenshot_name_map.get(
+                    self.role,
+                    "browser_snapshot.png",
+                ),
+                "metadata_name": metadata_name_map.get(
+                    self.role,
+                    "browser_result.json",
+                ),
+            },
+            ensure_ascii=False,
+        )
+
     async def run(self, task: AgentTask) -> AgentResult:
         """执行节点任务并返回完整文本摘要"""
 
@@ -170,6 +206,17 @@ class GenericTaskAgent(BaseAgent):
                 content = f"{content}\n\n接口调用：{tool_result.summary}"
             except ApiCallerError as exc:
                 content = f"{content}\n\n接口调用失败：{exc}"
+
+        if "browser_tool" in self.template.default_tools:
+            try:
+                tool_result = await self.browser_tool.execute(
+                    workspace_path=task.workspace_path,
+                    instruction=self.build_browser_tool_instruction(task),
+                )
+                artifacts.extend(tool_result.artifacts)
+                content = f"{content}\n\n页面校验：{tool_result.summary}"
+            except BrowserToolError as exc:
+                content = f"{content}\n\n页面校验失败：{exc}"
 
         if "code_executor" in self.template.default_tools:
             try:
