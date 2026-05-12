@@ -303,9 +303,18 @@ Authorization: Bearer <access_token>
       "progress": 0,
       "active_node_id": null,
       "artifacts": [],
-      "updated_at": "2026-05-13T02:10:00+00:00"
+      "updated_at": "2026-05-13T02:10:00+00:00",
+      "pause_after_nodes": []
     },
     "handoff_logs": [],
+    "workflow_run": {
+      "run_id": null,
+      "status": "idle",
+      "control_signal": "none",
+      "checkpoint_node_id": null,
+      "redirect_instruction": "",
+      "saved_at": null
+    },
     "created_at": "2026-05-12T20:04:37Z",
     "updated_at": "2026-05-12T20:04:37Z"
   }
@@ -328,7 +337,8 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "force_replan": false
+  "force_replan": false,
+  "pause_after_nodes": ["node_1"]
 }
 ```
 
@@ -389,15 +399,24 @@ Authorization: Bearer <access_token>
     ]
   },
   "execution_logs": [],
-  "workspace": {
-    "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_11\\workflow_3",
-    "status": "draft",
-    "progress": 0,
-    "active_node_id": null,
-    "artifacts": [],
-    "updated_at": "2026-05-13T02:10:00+00:00"
-  },
-  "handoff_logs": [],
+    "workspace": {
+      "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_11\\workflow_3",
+      "status": "draft",
+      "progress": 0,
+      "active_node_id": null,
+      "artifacts": [],
+      "updated_at": "2026-05-13T02:10:00+00:00",
+      "pause_after_nodes": ["node_1"]
+    },
+    "handoff_logs": [],
+    "workflow_run": {
+      "run_id": null,
+      "status": "idle",
+      "control_signal": "none",
+      "checkpoint_node_id": null,
+      "redirect_instruction": "",
+      "saved_at": null
+    },
   "created_at": "2026-05-12T20:04:37Z",
   "updated_at": "2026-05-12T20:04:37Z"
 }
@@ -407,9 +426,11 @@ Authorization: Bearer <access_token>
 
 - 当当前对话已有预览且 `force_replan=false` 时，直接返回最新预览
 - 当 `force_replan=true` 时，会基于当前对话历史重新创建一条新的预览记录
+- `pause_after_nodes` 可指定断点节点列表，命中后工作流会在节点完成后进入 `waiting_confirm`
 - 当前阶段会返回 `progress`、`execution_logs` 和节点 `runtime_status`
 - 节点同时返回 `template_id`，用于标识当前角色使用的预置模板
 - 当前阶段会同时返回共享工作区 `workspace` 状态和节点交接记录 `handoff_logs`
+- 当前阶段会返回 `workflow_run`，用于展示运行轮次与断点状态
 - 预览阶段默认所有节点为 `waiting`
 
 错误码：
@@ -458,15 +479,24 @@ Authorization: Bearer <access_token>
     ]
   },
   "execution_logs": [],
-  "workspace": {
-    "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_11\\workflow_3",
-    "status": "confirmed",
-    "progress": 0,
-    "active_node_id": null,
-    "artifacts": [],
-    "updated_at": "2026-05-13T02:10:05+00:00"
-  },
-  "handoff_logs": [],
+    "workspace": {
+      "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_11\\workflow_3",
+      "status": "confirmed",
+      "progress": 0,
+      "active_node_id": null,
+      "artifacts": [],
+      "updated_at": "2026-05-13T02:10:05+00:00",
+      "pause_after_nodes": ["node_1"]
+    },
+    "handoff_logs": [],
+    "workflow_run": {
+      "run_id": null,
+      "status": "idle",
+      "control_signal": "none",
+      "checkpoint_node_id": null,
+      "redirect_instruction": "",
+      "saved_at": null
+    },
   "created_at": "2026-05-12T20:04:37Z",
   "updated_at": "2026-05-12T20:04:40Z"
 }
@@ -520,15 +550,24 @@ Authorization: Bearer <access_token>
     ]
   },
   "execution_logs": [],
-  "workspace": {
-    "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_16\\workflow_7",
-    "status": "running",
-    "progress": 0,
-    "active_node_id": null,
-    "artifacts": [],
-    "updated_at": "2026-05-13T02:11:00+00:00"
-  },
-  "handoff_logs": [],
+    "workspace": {
+      "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_16\\workflow_7",
+      "status": "running",
+      "progress": 0,
+      "active_node_id": null,
+      "artifacts": [],
+      "updated_at": "2026-05-13T02:11:00+00:00",
+      "pause_after_nodes": ["node_1"]
+    },
+    "handoff_logs": [],
+    "workflow_run": {
+      "run_id": 12,
+      "status": "running",
+      "control_signal": "none",
+      "checkpoint_node_id": null,
+      "redirect_instruction": "",
+      "saved_at": null
+    },
   "created_at": "2026-05-12T23:13:39Z",
   "updated_at": "2026-05-12T23:13:39Z"
 }
@@ -543,6 +582,7 @@ Authorization: Bearer <access_token>
 - 每个节点完成后会向当前对话追加一条角色摘要消息
 - 每条工作流会在仓库根目录 `workspace/projects/conversation_<id>/workflow_<id>/` 创建共享工作区
 - 节点间交接会写入 `handoff_logs` 与 `context/handoff_log.json`
+- 若命中 `pause_after_nodes` 指定节点，工作流会进入 `waiting_confirm`，同时保存 `workflow_runs.checkpoint_json`
 - 执行完成后，`status` 会更新为 `completed`，并回写 `progress` 与 `execution_logs`
 
 错误码：
@@ -559,7 +599,42 @@ Authorization: Bearer <access_token>
 
 ## 5. 当前未实现但已规划的接口
 
+### POST /api/workflows/{conversation_id}/{workflow_id}/control
+
+用途：对运行中的工作流发送暂停、恢复、中断或改向控制指令。
+
+请求体：
+
+```json
+{
+  "action": "resume",
+  "redirect_instruction": ""
+}
+```
+
+支持动作：
+
+- `pause`
+- `resume`
+- `abort`
+- `redirect`
+
+说明：
+
+- `redirect` 时必须提供非空 `redirect_instruction`
+- 工作流处于 `waiting_confirm` 时，推荐使用 `resume` 或 `redirect`
+- 当前控制结果会同步回 `workflow_run` 和 `workspace` 状态
+
+错误码：
+
+- `WORKFLOW_NOT_FOUND`
+- `WORKFLOW_RUN_NOT_FOUND`
+- `INVALID_WORKFLOW_CONTROL_ACTION`
+- `MISSING_REDIRECT_INSTRUCTION`
+- `CONTROL_WORKFLOW_FAILED`
+
+## 5. 当前未实现但已规划的接口
+
 以下接口仍处于规划阶段，暂未在当前仓库中实现：
 
 - `/api/projects`
-- `/api/workflows/{conversation_id}/control`

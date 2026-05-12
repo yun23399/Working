@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #16）
+> 更新者：Codex（会话 #17）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段二：工作流引擎（已完成最小工作流预览、执行刷新、预置角色模板、日志面板与共享工作区链路）**
+**⏳ 阶段二：工作流引擎（已完成最小工作流预览、执行刷新、预置角色模板、日志面板、共享工作区与断点控制链路）**
 
 ---
 
@@ -95,7 +95,7 @@
 - [x] Agent 生成器（agent_spawner.py）
 - [x] 预置角色模板（前端/后端/测试/PM/设计师）
 - [x] 共享工作区（workspace.py）
-- [ ] 断点控制（checkpoint.py）
+- [x] 断点控制（checkpoint.py）
 - [ ] 错误处理与层级上报（error_handler.py）
 - [x] 工作流日志实时展示（LogViewer.tsx）
 - [ ] 项目级记忆（project_memory.py）
@@ -152,6 +152,7 @@
 - ✅ 阶段二预置角色模板链路 — 2026-05-12 | PM/前端/后端/测试/设计师模板已接入预览规划、执行提示词与前端展示
 - ✅ 阶段二工作流日志面板链路 — 2026-05-13 | 工作流编排日志已从聊天日志拆分为独立面板，并随 WebSocket 实时回显
 - ✅ 阶段二共享工作区链路 — 2026-05-13 | 工作流已具备根目录共享工作区、状态快照与节点交接记录能力
+- ✅ 阶段二断点控制链路 — 2026-05-13 | 工作流已支持运行快照、等待确认、恢复执行与控制接口
 
 ---
 
@@ -448,6 +449,24 @@
   2. `frontend`: `npm run lint`、`npm run build` 通过
   3. API 实测通过：工作流执行完成后返回根目录共享工作区路径 `workspace/projects/conversation_23/workflow_19`
   4. API 实测通过：`workspace_state.json` 与 `handoff_log.json` 已落盘，响应中可返回 `workspace` 与 `handoff_logs`
+
+### 2026-05-13 会话 #17
+- 执行内容：完成阶段二断点控制链路
+- 新增后端文件：
+  1. `backend/app/models/workflow_run.py`
+  2. `backend/app/workflow/checkpoint.py`
+  3. `backend/alembic/versions/20260513_000006_add_workflow_runs_table.py`
+- 关键改造：
+  1. 新增 `workflow_runs` 表保存运行轮次、断点快照、控制信号与改向说明
+  2. `dag_orchestrator.py` 接入断点等待、恢复执行、中断处理与节点级快照保存
+  3. `workflows.py` 新增 `/api/workflows/{conversation_id}/{workflow_id}/control` 控制接口
+  4. 工作流响应新增 `workflow_run` 运行态，前端工作流卡片新增暂停、恢复、改向和中断入口
+  5. 预览接口支持 `pause_after_nodes`，用于声明断点节点列表
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .`、`python -m alembic upgrade head` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. API 实测通过：`pause_after_nodes=['node_1']` 时工作流在首节点后进入 `waiting_confirm`
+  4. API 实测通过：调用 `resume` 后工作流可继续执行至 `completed`
 
 ---
 

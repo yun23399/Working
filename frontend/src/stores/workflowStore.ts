@@ -9,6 +9,7 @@ interface WorkflowState {
   generatingConversationId: number | null
   confirmingWorkflowId: number | null
   executingWorkflowId: number | null
+  controllingWorkflowId: number | null
   errorMessage: string | null
   setWorkflowList: (conversationId: number, workflows: WorkflowPreview[]) => void
   upsertWorkflow: (workflow: WorkflowPreview) => void
@@ -16,6 +17,7 @@ interface WorkflowState {
   setGeneratingConversationId: (conversationId: number | null) => void
   setConfirmingWorkflowId: (workflowId: number | null) => void
   setExecutingWorkflowId: (workflowId: number | null) => void
+  setControllingWorkflowId: (workflowId: number | null) => void
   updateWorkflowProgress: (
     conversationId: number,
     workflowId: number,
@@ -83,6 +85,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   generatingConversationId: null,
   confirmingWorkflowId: null,
   executingWorkflowId: null,
+  controllingWorkflowId: null,
   errorMessage: null,
   setWorkflowList: (conversationId, workflows) =>
     set((state) => ({
@@ -111,6 +114,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
     set({ generatingConversationId }),
   setConfirmingWorkflowId: (confirmingWorkflowId) => set({ confirmingWorkflowId }),
   setExecutingWorkflowId: (executingWorkflowId) => set({ executingWorkflowId }),
+  setControllingWorkflowId: (controllingWorkflowId) => set({ controllingWorkflowId }),
   updateWorkflowProgress: (conversationId, workflowId, nodeId, status, progress) =>
     set((state) => {
       const currentList = state.workflowsByConversation[conversationId] ?? []
@@ -212,6 +216,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
       generatingConversationId: null,
       confirmingWorkflowId: null,
       executingWorkflowId: null,
+      controllingWorkflowId: null,
       errorMessage: null,
     }),
 }))

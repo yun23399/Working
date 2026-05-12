@@ -10,6 +10,7 @@ import {
 } from '../api/conversations'
 import {
   confirmWorkflowPreview,
+  controlWorkflow,
   createWorkflowPreview,
   executeWorkflow,
   fetchConversationWorkflows,
@@ -114,6 +115,7 @@ export function Chat() {
   const generatingConversationId = useWorkflowStore((state) => state.generatingConversationId)
   const confirmingWorkflowId = useWorkflowStore((state) => state.confirmingWorkflowId)
   const executingWorkflowId = useWorkflowStore((state) => state.executingWorkflowId)
+  const controllingWorkflowId = useWorkflowStore((state) => state.controllingWorkflowId)
   const setWorkflowList = useWorkflowStore((state) => state.setWorkflowList)
   const upsertWorkflow = useWorkflowStore((state) => state.upsertWorkflow)
   const appendWorkflowRuntimeLog = useWorkflowStore((state) => state.appendRuntimeLog)
@@ -129,6 +131,9 @@ export function Chat() {
   )
   const setWorkflowExecutingWorkflowId = useWorkflowStore(
     (state) => state.setExecutingWorkflowId,
+  )
+  const setWorkflowControllingWorkflowId = useWorkflowStore(
+    (state) => state.setControllingWorkflowId,
   )
   const setWorkflowError = useWorkflowStore((state) => state.setError)
   const clearWorkflowState = useWorkflowStore((state) => state.clearWorkflowState)
@@ -159,6 +164,8 @@ export function Chat() {
     activeWorkflowPreview !== null && confirmingWorkflowId === activeWorkflowPreview.workflow_id
   const isExecutingWorkflow =
     activeWorkflowPreview !== null && executingWorkflowId === activeWorkflowPreview.workflow_id
+  const isControllingWorkflow =
+    activeWorkflowPreview !== null && controllingWorkflowId === activeWorkflowPreview.workflow_id
   const chatWindowLogs = activityLogs.filter(
     (log) => log.agentId === 'system' || log.agentId === 'manager',
   )
@@ -633,6 +640,7 @@ export function Chat() {
     try {
       const preview = await createWorkflowPreview(token, activeConversationId, {
         force_replan: forceReplan,
+        pause_after_nodes: ['node_1'],
       })
       upsertWorkflow(preview)
     } catch (error) {
@@ -715,6 +723,54 @@ export function Chat() {
     }
   }
 
+  const handleControlWorkflow = async (
+    action: 'pause' | 'resume' | 'abort' | 'redirect',
+  ) => {
+    if (!token) {
+      handleUnauthorized()
+      return
+    }
+
+    if (activeConversationId === null || !activeWorkflowPreview) {
+      setWorkflowError('当前还没有可控制的工作流')
+      return
+    }
+
+    setWorkflowControllingWorkflowId(activeWorkflowPreview.workflow_id)
+    setWorkflowError(null)
+
+    try {
+      const redirectInstruction =
+        action === 'redirect'
+          ? '请在当前断点基础上补充更偏文档交付的说明后继续执行。'
+          : undefined
+      const nextWorkflow = await controlWorkflow(
+        token,
+        activeConversationId,
+        activeWorkflowPreview.workflow_id,
+        {
+          action,
+          redirect_instruction: redirectInstruction,
+        },
+      )
+      upsertWorkflow(nextWorkflow)
+      scheduleWorkflowRefresh(
+        activeConversationId,
+        activeWorkflowPreview.workflow_id,
+        500,
+      )
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setWorkflowError(resolveChatError(error))
+    } finally {
+      setWorkflowControllingWorkflowId(null)
+    }
+  }
+
   const handleLogout = () => {
     clearSession()
     clearChatState()
@@ -770,6 +826,7 @@ export function Chat() {
               isGenerating={isGeneratingWorkflow}
               isConfirming={isConfirmingWorkflow}
               isExecuting={isExecutingWorkflow}
+              isControlling={isControllingWorkflow}
               onGenerate={() => {
                 void handleGenerateWorkflowPreview(false)
               }}
@@ -781,6 +838,18 @@ export function Chat() {
               }}
               onExecute={() => {
                 void handleExecuteWorkflow()
+              }}
+              onPause={() => {
+                void handleControlWorkflow('pause')
+              }}
+              onResume={() => {
+                void handleControlWorkflow('resume')
+              }}
+              onAbort={() => {
+                void handleControlWorkflow('abort')
+              }}
+              onRedirect={() => {
+                void handleControlWorkflow('redirect')
               }}
             />
             <LogViewer logs={workflowRuntimeLogs} />

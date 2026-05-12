@@ -1,5 +1,9 @@
 import { requestJson } from './client'
-import type { WorkflowPreview, WorkflowPreviewRequest } from '../types/workflow'
+import type {
+  WorkflowControlRequest,
+  WorkflowPreview,
+  WorkflowPreviewRequest,
+} from '../types/workflow'
 
 // 读取指定对话下的工作流预览列表
 export async function fetchConversationWorkflows(
@@ -50,6 +54,23 @@ export async function executeWorkflow(
     {
       method: 'POST',
       token,
+    },
+  )
+}
+
+// 对指定工作流发送暂停、恢复、中断或改向指令
+export async function controlWorkflow(
+  token: string,
+  conversationId: number,
+  workflowId: number,
+  payload: WorkflowControlRequest,
+): Promise<WorkflowPreview> {
+  return requestJson<WorkflowPreview>(
+    `/api/workflows/${conversationId}/${workflowId}/control`,
+    {
+      method: 'POST',
+      token,
+      body: payload,
     },
   )
 }

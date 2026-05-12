@@ -9,6 +9,14 @@ class WorkflowPreviewRequestSchema(BaseModel):
     """工作流预览请求模型，允许指定是否强制重新规划"""
 
     force_replan: bool = False
+    pause_after_nodes: list[str] = []
+
+
+class WorkflowControlRequestSchema(BaseModel):
+    """工作流控制请求模型，描述暂停、恢复、中断或改向操作"""
+
+    action: str
+    redirect_instruction: str = ""
 
 
 class RequirementSummarySchema(BaseModel):
@@ -70,6 +78,18 @@ class WorkflowWorkspaceStateSchema(BaseModel):
     active_node_id: str | None
     artifacts: list[str]
     updated_at: str
+    pause_after_nodes: list[str] = []
+
+
+class WorkflowRunSchema(BaseModel):
+    """工作流运行状态模型，描述当前轮次与断点控制信息"""
+
+    run_id: int | None
+    status: str
+    control_signal: str
+    checkpoint_node_id: str | None
+    redirect_instruction: str
+    saved_at: str | None
 
 
 class WorkflowPreviewResponseSchema(BaseModel):
@@ -84,5 +104,6 @@ class WorkflowPreviewResponseSchema(BaseModel):
     execution_logs: list[WorkflowExecutionLogSchema]
     workspace: WorkflowWorkspaceStateSchema
     handoff_logs: list[WorkflowHandoffSchema]
+    workflow_run: WorkflowRunSchema
     created_at: datetime
     updated_at: datetime

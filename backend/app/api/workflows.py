@@ -12,6 +12,7 @@ from app.models.conversation import Conversation
 from app.models.user import User
 from app.models.workflow import Workflow
 from app.schemas.workflow import (
+    WorkflowControlRequestSchema,
     WorkflowPreviewRequestSchema,
     WorkflowPreviewResponseSchema,
 )
@@ -28,9 +29,14 @@ from app.services.workflow_service import (
     mark_workflow_running,
     workflow_to_response,
 )
+from app.workflow.checkpoint import (
+    WorkflowCheckpointController,
+    WorkflowRunNotFoundError,
+)
 from app.workflow.dag_orchestrator import DagOrchestrator, WorkflowExecutionError
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
+checkpoint_controller = WorkflowCheckpointController()
 
 
 async def run_workflow_execution_async(workflow_id: int) -> None:
@@ -97,7 +103,12 @@ def create_workflow_preview_endpoint(
             return workflow_to_response(existing_workflows[0])
 
         _, history_messages = load_conversation_context(db, conversation.id)
-        workflow = create_workflow_preview(db, conversation, history_messages)
+        workflow = create_workflow_preview(
+            db,
+            conversation,
+            history_messages,
+            pause_after_nodes=payload.pause_after_nodes,
+        )
         return workflow_to_response(workflow)
     except SQLAlchemyError as exc:
         db.rollback()
@@ -195,6 +206,89 @@ async def execute_workflow_endpoint(
             detail={
                 "error": "启动工作流执行失败",
                 "code": "EXECUTE_WORKFLOW_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+
+
+@router.post(
+    "/{conversation_id}/{workflow_id}/control",
+    response_model=WorkflowPreviewResponseSchema,
+)
+def control_workflow_endpoint(
+    conversation_id: int,
+    workflow_id: int,
+    payload: WorkflowControlRequestSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> WorkflowPreviewResponseSchema:
+    """对工作流发送暂停、恢复、中断或改向控制指令"""
+
+    try:
+        conversation = get_conversation_by_owner(db, conversation_id, current_user)
+        workflow = get_workflow_by_id(db, workflow_id, conversation.id)
+        workflow_run = checkpoint_controller.require_latest_run(db, workflow.id)
+
+        if payload.action == "pause":
+            checkpoint_controller.request_pause(db, workflow_run)
+        elif payload.action == "resume":
+            checkpoint_controller.request_resume(db, workflow_run)
+        elif payload.action == "abort":
+            checkpoint_controller.request_abort(db, workflow_run)
+        elif payload.action == "redirect":
+            if not payload.redirect_instruction.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail={
+                        "error": "改向说明不能为空",
+                        "code": "MISSING_REDIRECT_INSTRUCTION",
+                        "detail": "执行 redirect 时必须提供 redirect_instruction",
+                    },
+                )
+            checkpoint_controller.request_redirect(
+                db,
+                workflow_run,
+                payload.redirect_instruction.strip(),
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "工作流控制动作不合法",
+                    "code": "INVALID_WORKFLOW_CONTROL_ACTION",
+                    "detail": f"当前动作 `{payload.action}` 不受支持",
+                },
+            )
+
+        db.refresh(workflow)
+        return workflow_to_response(workflow)
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "工作流预览不存在",
+                "code": "WORKFLOW_NOT_FOUND",
+                "detail": f"工作流 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except WorkflowRunNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "工作流运行记录不存在",
+                "code": "WORKFLOW_RUN_NOT_FOUND",
+                "detail": f"工作流 `{exc}` 当前没有可控制的运行记录",
+            },
+        ) from exc
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "工作流控制失败",
+                "code": "CONTROL_WORKFLOW_FAILED",
                 "detail": str(exc),
             },
         ) from exc

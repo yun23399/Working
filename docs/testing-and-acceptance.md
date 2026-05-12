@@ -23,6 +23,7 @@
 15. 最小工作流执行链路可用
 16. 工作流实时日志面板可用
 17. 共享工作区链路可用
+18. 断点控制链路可用
 
 ## 建议命令
 
@@ -151,6 +152,16 @@ python -m playwright install chromium
 - `context/workspace_state.json` 可记录当前状态、进度、活跃节点与产出物列表
 - `context/handoff_log.json` 可记录节点之间的交接摘要
 - `GET /api/workflows/{conversation_id}` 返回的 `workspace` 与 `handoff_logs` 字段可反映当前工作区状态
+
+### 用例 11：阶段二断点控制链路
+
+验证结果：
+
+- `python -m alembic upgrade head` 可正常创建 `workflow_runs` 表
+- `POST /api/workflows/{conversation_id}/preview` 可接受 `pause_after_nodes`
+- `POST /api/workflows/{conversation_id}/{workflow_id}/execute` 后，命中断点节点可进入 `waiting_confirm`
+- `POST /api/workflows/{conversation_id}/{workflow_id}/control` 发送 `resume` 后，工作流可继续到 `completed`
+- `workflow_run.checkpoint_node_id` 与 `workflow_run.status` 可反映当前断点位置和运行状态
 
 ## 本地验证注意事项
 

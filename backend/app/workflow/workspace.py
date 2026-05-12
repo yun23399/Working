@@ -78,6 +78,7 @@ class WorkflowWorkspace:
             "progress": self.workflow.progress,
             "active_node_id": None,
             "artifacts": [],
+            "pause_after_nodes": [],
             "updated_at": self.build_timestamp(),
         }
 
@@ -105,10 +106,12 @@ class WorkflowWorkspace:
         progress: int,
         active_node_id: str | None,
         artifacts: list[str],
+        pause_after_nodes: list[str] | None = None,
     ) -> dict[str, Any]:
         """持久化最新工作区状态，并同步回模型字段"""
 
         workspace_dir = self.ensure_workspace()
+        current_state = self.load_workspace_state()
         state = {
             "workflow_id": self.workflow.id,
             "conversation_id": self.workflow.conversation_id,
@@ -116,6 +119,11 @@ class WorkflowWorkspace:
             "progress": progress,
             "active_node_id": active_node_id,
             "artifacts": artifacts,
+            "pause_after_nodes": (
+                pause_after_nodes
+                if pause_after_nodes is not None
+                else current_state.get("pause_after_nodes", [])
+            ),
             "updated_at": self.build_timestamp(),
         }
         state_path = workspace_dir / "context" / "workspace_state.json"
@@ -190,6 +198,7 @@ class WorkflowWorkspace:
         return (
             f"工作区状态：{status}，进度 {progress}%\n"
             f"当前活跃节点：{state.get('active_node_id') or '无'}\n"
+            f"断点配置：{','.join(state.get('pause_after_nodes', [])) or '无'}\n"
             f"最近交接：{recent_handoffs}\n"
             f"当前产出物：{artifact_text}"
         )

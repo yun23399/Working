@@ -1,6 +1,13 @@
 // 工作流预览请求类型
 export interface WorkflowPreviewRequest {
   force_replan: boolean
+  pause_after_nodes: string[]
+}
+
+// 工作流控制请求类型
+export interface WorkflowControlRequest {
+  action: 'pause' | 'resume' | 'abort' | 'redirect'
+  redirect_instruction?: string
 }
 
 // 结构化需求摘要类型
@@ -56,6 +63,17 @@ export interface WorkflowWorkspaceState {
   active_node_id: string | null
   artifacts: string[]
   updated_at: string
+  pause_after_nodes: string[]
+}
+
+// 工作流运行状态类型
+export interface WorkflowRunState {
+  run_id: number | null
+  status: string
+  control_signal: string
+  checkpoint_node_id: string | null
+  redirect_instruction: string
+  saved_at: string | null
 }
 
 // 工作流预览响应类型
@@ -69,6 +87,7 @@ export interface WorkflowPreview {
   execution_logs: WorkflowExecutionLog[]
   workspace: WorkflowWorkspaceState
   handoff_logs: WorkflowHandoffLog[]
+  workflow_run: WorkflowRunState
   created_at: string
   updated_at: string
 }

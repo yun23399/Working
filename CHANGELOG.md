@@ -9,6 +9,10 @@
 - 工作流执行时会在仓库根目录 `workspace/projects/...` 初始化专属工作区
 - 节点执行前后会回写工作区状态快照和节点交接记录
 - 工作流接口响应新增 `workspace` 与 `handoff_logs`
+- 新增工作流运行记录表 `workflow_runs`
+- 新增断点控制器 `checkpoint.py`
+- 新增工作流控制接口 `/api/workflows/{conversation_id}/{workflow_id}/control`
+- 工作流已支持 `waiting_confirm` 断点等待、恢复执行与人工改向信号
 
 ### 前端能力
 
@@ -17,6 +21,7 @@
 - `workflowStore` 新增按工作流缓存运行时日志的状态管理
 - `useWebSocket` 新增日志事件回调扩展点，支持页面侧按场景消费 `log` 事件
 - 工作流重新执行前会清空当前运行日志，避免旧日志残留
+- 工作流卡片新增暂停、恢复、改向与中断操作入口
 
 ## 2026-05-12
 

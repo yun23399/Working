@@ -1,10 +1,13 @@
 import {
+  CirclePause,
   ArrowRight,
+  CircleStop,
   Check,
   FileText,
   GitBranch,
   LoaderCircle,
   RefreshCw,
+  RotateCcw,
   Sparkles,
 } from 'lucide-react'
 import type { WorkflowPreview } from '../../types/workflow'
@@ -18,10 +21,15 @@ interface WorkflowConfirmProps {
   isGenerating: boolean
   isConfirming: boolean
   isExecuting: boolean
+  isControlling: boolean
   onGenerate: () => void
   onReplan: () => void
   onConfirm: () => void
   onExecute: () => void
+  onPause: () => void
+  onResume: () => void
+  onAbort: () => void
+  onRedirect: () => void
 }
 
 const outputTypeLabelMap: Record<string, string> = {
@@ -85,6 +93,13 @@ function resolveStatusMeta(status: string): {
     }
   }
 
+  if (status === 'waiting_confirm') {
+    return {
+      label: '等待确认',
+      className: 'bg-[#fef3c7] text-[#9a6700]',
+    }
+  }
+
   if (status === 'confirmed') {
     return {
       label: '已确认',
@@ -108,10 +123,15 @@ export function WorkflowConfirm({
   isGenerating,
   isConfirming,
   isExecuting,
+  isControlling,
   onGenerate,
   onReplan,
   onConfirm,
   onExecute,
+  onPause,
+  onResume,
+  onAbort,
+  onRedirect,
 }: WorkflowConfirmProps) {
   const statusMeta = workflow ? resolveStatusMeta(workflow.status) : null
   const emptyStateDescription = !hasConversation
@@ -185,7 +205,10 @@ export function WorkflowConfirm({
                 <button
                   type="button"
                   onClick={onExecute}
-                  disabled={workflow.status !== 'confirmed' || isExecuting}
+                  disabled={
+                    !['confirmed', 'waiting_confirm'].includes(workflow.status) ||
+                    isExecuting
+                  }
                   className="inline-flex items-center gap-2 rounded-2xl bg-[#4c6ef5] px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isExecuting ? (
@@ -194,6 +217,58 @@ export function WorkflowConfirm({
                     <ArrowRight className="h-4 w-4" />
                   )}
                   开始执行
+                </button>
+                <button
+                  type="button"
+                  onClick={onPause}
+                  disabled={workflow.status !== 'running' || isControlling}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white/80 px-4 py-3 text-sm text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isControlling ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CirclePause className="h-4 w-4" />
+                  )}
+                  请求暂停
+                </button>
+                <button
+                  type="button"
+                  onClick={onResume}
+                  disabled={workflow.status !== 'waiting_confirm' || isControlling}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white/80 px-4 py-3 text-sm text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isControlling ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RotateCcw className="h-4 w-4" />
+                  )}
+                  恢复执行
+                </button>
+                <button
+                  type="button"
+                  onClick={onRedirect}
+                  disabled={workflow.status !== 'waiting_confirm' || isControlling}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white/80 px-4 py-3 text-sm text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isControlling ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  改向继续
+                </button>
+                <button
+                  type="button"
+                  onClick={onAbort}
+                  disabled={!['running', 'waiting_confirm'].includes(workflow.status) || isControlling}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-[#e3c2bf] bg-[#fff5f4] px-4 py-3 text-sm text-[#9b4b46] transition hover:bg-[#fff0ef] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isControlling ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CircleStop className="h-4 w-4" />
+                  )}
+                  中断执行
                 </button>
               </>
             )}
@@ -266,6 +341,18 @@ export function WorkflowConfirm({
                   />
                 </div>
                 <div className="mt-2 text-xs text-ink-faint">{workflow.progress}%</div>
+              </div>
+              <div className="mt-4 rounded-[18px] border border-line bg-[#faf7f0] px-4 py-3 text-sm text-ink-soft">
+                当前工作区：{workflow.workspace.workspace_path}
+                <div className="mt-2 text-xs text-ink-faint">
+                  断点配置：
+                  {workflow.workspace.pause_after_nodes.length > 0
+                    ? workflow.workspace.pause_after_nodes.join(', ')
+                    : '无'}
+                </div>
+                <div className="mt-1 text-xs text-ink-faint">
+                  运行状态：{workflow.workflow_run.status} / 控制信号：{workflow.workflow_run.control_signal}
+                </div>
               </div>
               <div className="mt-4">
                 <div className="text-xs uppercase tracking-[0.18em] text-ink-faint">约束</div>

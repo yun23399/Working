@@ -5,7 +5,7 @@ from dataclasses import asdict
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from app.core.manager.manager_agent import ManagerConversationMessage
 from app.core.manager.requirement_extractor import RequirementExtractor
@@ -19,8 +19,10 @@ from app.schemas.workflow import (
     WorkflowHandoffSchema,
     WorkflowNodeSchema,
     WorkflowPreviewResponseSchema,
+    WorkflowRunSchema,
     WorkflowWorkspaceStateSchema,
 )
+from app.workflow.checkpoint import WorkflowCheckpointController
 from app.workflow.workspace import WorkflowWorkspace
 
 
@@ -63,6 +65,7 @@ def create_workflow_preview(
     db: Session,
     conversation: Conversation,
     history_messages: list[ManagerConversationMessage],
+    pause_after_nodes: list[str] | None = None,
 ) -> Workflow:
     """根据当前对话历史生成工作流预览并持久化"""
 
@@ -90,6 +93,7 @@ def create_workflow_preview(
         progress=workflow.progress,
         active_node_id=None,
         artifacts=[],
+        pause_after_nodes=pause_after_nodes or [],
     )
     workflow.workspace_path = str(workspace_dir)
     db.add(workflow)
@@ -125,6 +129,7 @@ def mark_workflow_running(db: Session, workflow: Workflow) -> Workflow:
         progress=workflow.progress,
         active_node_id=None,
         artifacts=[],
+        pause_after_nodes=workspace.load_workspace_state().get("pause_after_nodes", []),
     )
     workflow.workspace_path = str(workspace.resolve_workspace_path())
     db.add(workflow)
@@ -187,6 +192,7 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
         execution_log_payload,
     )
     workspace_manager = WorkflowWorkspace(workflow)
+    checkpoint_controller = WorkflowCheckpointController()
     workspace_state_payload = (
         json.loads(workflow.workspace_state_json)
         if workflow.workspace_state_json and workflow.workspace_state_json != "{}"
@@ -194,6 +200,21 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
     )
     workspace_path = workflow.workspace_path or str(
         workspace_manager.resolve_workspace_path()
+    )
+    db_session = object_session(workflow)
+    latest_run = (
+        checkpoint_controller.get_latest_run(db=db_session, workflow_id=workflow.id)
+        if db_session is not None
+        else None
+    )
+    checkpoint_payload = (
+        json.loads(latest_run.checkpoint_json)
+        if (
+            latest_run
+            and latest_run.checkpoint_json
+            and latest_run.checkpoint_json != "{}"
+        )
+        else {}
     )
 
     return WorkflowPreviewResponseSchema(
@@ -222,8 +243,17 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
             active_node_id=workspace_state_payload.get("active_node_id"),
             artifacts=workspace_state_payload.get("artifacts", []),
             updated_at=workspace_state_payload.get("updated_at", ""),
+            pause_after_nodes=workspace_state_payload.get("pause_after_nodes", []),
         ),
         handoff_logs=[WorkflowHandoffSchema(**item) for item in handoff_log_payload],
+        workflow_run=WorkflowRunSchema(
+            run_id=latest_run.id if latest_run else None,
+            status=latest_run.status if latest_run else "idle",
+            control_signal=latest_run.control_signal if latest_run else "none",
+            checkpoint_node_id=checkpoint_payload.get("node_id"),
+            redirect_instruction=latest_run.redirect_instruction if latest_run else "",
+            saved_at=checkpoint_payload.get("saved_at"),
+        ),
         created_at=workflow.created_at,
         updated_at=workflow.updated_at,
     )
