@@ -1,7 +1,7 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-12
-> 更新者：Codex（会话 #5）
+> 更新者：Codex（会话 #6）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
@@ -27,17 +27,17 @@
 ## 阶段一：执行顺序（优化后）
 
 ### Step 0 — 仓库状态对齐
-- [ ] 核对 `frontend/`、`backend/`、`README.md`、`.env.example`、`.gitignore`、`.github/workflows/ci.yml` 是否在当前仓库真实存在
+- [x] 核对 `frontend/`、`backend/`、`README.md`、`.env.example`、`.gitignore`、`.github/workflows/ci.yml` 是否在当前仓库真实存在
 - [x] 若缺失，先在当前仓库落地真实目录与文件，再继续后续开发
 - [x] `PROGRESS.md` 的目录快照、完成项、操作日志必须与真实仓库一致
 - 验收标准：当前仓库目录结构与 `PROGRESS.md` 快照一致
 
 ### Step 1 — 工程骨架与依赖验证
-- [ ] 创建前端真实脚手架（Vite + React + TypeScript）
-- [ ] 创建后端真实骨架（FastAPI + SQLAlchemy + Alembic）
+- [x] 创建前端真实脚手架（Vite + React + TypeScript）
+- [x] 创建后端真实骨架（FastAPI + SQLAlchemy + Alembic）
 - [x] 落地 ESLint / Prettier / Husky / lint-staged / Ruff / Black / CI / `.env.example` / `.gitignore`
-- [ ] 执行 `npm install`、`npm run lint`、`npm run build`
-- [ ] 执行 `pip install -r requirements.txt`、`ruff check .`、`black --check .`、`alembic upgrade head`、`uvicorn app.main:app`
+- [x] 执行 `npm install`、`npm run lint`、`npm run build`
+- [x] 执行 `pip install -r requirements.txt`、`ruff check .`、`black --check .`、`alembic upgrade head`、`uvicorn app.main:app`
 - 验收标准：前后端依赖安装、Lint、构建、迁移、启动全部通过
 
 ### Step 2 — 后端真实认证闭环
@@ -134,6 +134,8 @@
 - ✅ 项目基础文档体系 — 2026-05-12 | README、API、WebSocket、产品流程、测试与部署文档
 - ✅ GitHub 基础文件与本地 Git 基线 — 2026-05-12 | .env.example、.gitignore、GitHub Actions、git init、dev 分支
 - ✅ GitHub 远程备份 — 2026-05-12 | 已连接 `https://github.com/yun23399/Working.git` 并推送到 `origin/dev`
+- ✅ 前后端真实工程骨架 — 2026-05-12 | frontend Vite/React/TS + backend FastAPI/SQLAlchemy/Alembic
+- ✅ 阶段一 Step 1 基础验证 — 2026-05-12 | 前端 lint/build 与后端 ruff/black/alembic/health 通过
 
 ---
 
@@ -148,6 +150,12 @@
 │       └── ci.yml
 ├── .gitignore
 ├── AGENTS.md
+├── backend/
+│   ├── alembic/
+│   ├── alembic.ini
+│   ├── app/
+│   ├── pyproject.toml
+│   └── requirements.txt
 ├── CHANGELOG.md
 ├── Codex_完整开发引导Prompt.md
 ├── docs/
@@ -157,6 +165,13 @@
 │   ├── testing-and-acceptance.md
 │   └── websocket-protocol.md
 ├── files.zip
+├── frontend/
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── src/
+│   ├── tailwind.config.ts
+│   ├── tsconfig.app.json
+│   └── vite.config.ts
 ├── multi_agent_platform_ui_demo.html
 ├── PROGRESS.md
 ├── README.md
@@ -228,14 +243,38 @@
   1. 继续禁止直接推送到 `main`
   2. 默认每次执行完成后推送当前开发分支到 `https://github.com/yun23399/Working`
 
+### 2026-05-12 会话 #6
+- 执行内容：落地阶段一真实前后端工程骨架并完成 Step 1 基础验证
+- 创建目录：
+  1. `frontend/`
+  2. `backend/`
+  3. `backend/data/`
+- 关键结果：
+  1. 前端已切换为 React 18 + TypeScript 5 + Vite 结构
+  2. 前端已补齐 Tailwind、React Router、React Query、Zustand、i18n 基础骨架
+  3. 后端已落地 FastAPI、SQLAlchemy、Alembic 基础骨架
+  4. Alembic 初始迁移已执行成功，生成 `data/app.db`
+  5. 后端健康检查 `http://127.0.0.1:8001/health` 返回 `200`
+- 验证结果：
+  1. `frontend`: `npm install`、`npm run lint`、`npm run build` 通过
+  2. `backend`: `pip install -r requirements.txt`、`python -m ruff check .`、`python -m black --check .`、`alembic upgrade head` 通过
+- 遗留说明：
+  1. 本机 `127.0.0.1:8000` 已被其他 `uvicorn --reload` 进程占用，因此本轮启动验证使用 `8001`
+  2. 当前仍未进入认证、WebSocket、LLM 逻辑实现
+- 下次优先：
+  1. 实现真实 JWT / bcrypt 认证闭环
+  2. 落地认证 API 与 `deps.py`
+  3. 开始最小对话后端闭环
+
 ---
 
 ## 已知问题 / 待决定事项
 
 | 编号 | 描述 | 状态 | 优先级 |
 |------|------|------|--------|
-| #001 | 当前仓库缺少前后端真实代码目录，与旧进度记录不一致 | ⚠️ 阻塞中 | 高 |
+| #001 | 当前仓库缺少前后端真实代码目录，与旧进度记录不一致 | ✅ 已解决 | 高 |
 | #002 | `files.zip` 不包含前后端工程代码，仅包含文档文件 | ⚠️ 已确认 | 高 |
 | #003 | 阶段一必须先完成状态对齐与依赖验证，认证 / 对话 / LLM 才能继续推进 | ⏳ 待执行 | 高 |
-| #004 | 当前仓库尚未落地 `frontend/` 与 `backend/` 实体工程，GitHub 上仍只有文档与基线文件 | ⚠️ 待处理 | 高 |
+| #004 | 当前仓库尚未落地 `frontend/` 与 `backend/` 实体工程，GitHub 上仍只有文档与基线文件 | ✅ 已解决 | 高 |
+| #006 | 本机 `127.0.0.1:8000` 已被其他 `uvicorn --reload` 进程占用，后续本项目本地联调需避开该端口或先确认归属 | ⚠️ 已确认 | 中 |
 | #005 | 本机未发现 `gh`，若后续需要 CLI 创建仓库或发 PR，需先安装并登录 GitHub CLI | ⏳ 待处理 | 中 |
