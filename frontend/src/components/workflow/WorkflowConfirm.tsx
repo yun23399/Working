@@ -1,4 +1,5 @@
 import {
+  ArrowRight,
   Check,
   FileText,
   GitBranch,
@@ -16,9 +17,11 @@ interface WorkflowConfirmProps {
   isLoading: boolean
   isGenerating: boolean
   isConfirming: boolean
+  isExecuting: boolean
   onGenerate: () => void
   onReplan: () => void
   onConfirm: () => void
+  onExecute: () => void
 }
 
 const outputTypeLabelMap: Record<string, string> = {
@@ -48,6 +51,27 @@ function resolveStatusMeta(status: string): {
   label: string
   className: string
 } {
+  if (status === 'completed') {
+    return {
+      label: '已完成',
+      className: 'bg-[#e8f5ee] text-[#1d6b49]',
+    }
+  }
+
+  if (status === 'running') {
+    return {
+      label: '执行中',
+      className: 'bg-[#fff4de] text-[#9a6700]',
+    }
+  }
+
+  if (status === 'failed') {
+    return {
+      label: '执行失败',
+      className: 'bg-[#fff0ef] text-[#a24545]',
+    }
+  }
+
   if (status === 'confirmed') {
     return {
       label: '已确认',
@@ -70,9 +94,11 @@ export function WorkflowConfirm({
   isLoading,
   isGenerating,
   isConfirming,
+  isExecuting,
   onGenerate,
   onReplan,
   onConfirm,
+  onExecute,
 }: WorkflowConfirmProps) {
   const statusMeta = workflow ? resolveStatusMeta(workflow.status) : null
   const emptyStateDescription = !hasConversation
@@ -92,7 +118,7 @@ export function WorkflowConfirm({
             </div>
             <h2 className="mt-3 text-xl font-semibold text-ink">先确认执行链路，再进入后续编排</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
-              当前版本先提供需求提取、节点拆分和确认入口。真实 DAG 执行、断点与多角色产出将在后续步骤补齐。
+              当前版本先提供需求提取、节点拆分、确认和最小串行执行入口。断点、并发和工具编排将在后续步骤补齐。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -120,7 +146,7 @@ export function WorkflowConfirm({
                 <button
                   type="button"
                   onClick={onReplan}
-                  disabled={isGenerating}
+                  disabled={isGenerating || workflow.status === 'running'}
                   className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white/80 px-4 py-3 text-sm text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isGenerating ? (
@@ -133,7 +159,7 @@ export function WorkflowConfirm({
                 <button
                   type="button"
                   onClick={onConfirm}
-                  disabled={workflow.status === 'confirmed' || isConfirming}
+                  disabled={workflow.status !== 'draft' || isConfirming}
                   className="inline-flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isConfirming ? (
@@ -141,7 +167,20 @@ export function WorkflowConfirm({
                   ) : (
                     <Check className="h-4 w-4" />
                   )}
-                  {workflow.status === 'confirmed' ? '已确认' : '确认工作流'}
+                  确认工作流
+                </button>
+                <button
+                  type="button"
+                  onClick={onExecute}
+                  disabled={workflow.status !== 'confirmed' || isExecuting}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#4c6ef5] px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isExecuting ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-4 w-4" />
+                  )}
+                  开始执行
                 </button>
               </>
             )}
@@ -206,6 +245,16 @@ export function WorkflowConfirm({
                 ))}
               </div>
               <div className="mt-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-ink-faint">执行进度</div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#ece7dc]">
+                  <div
+                    className="h-full rounded-full bg-[#4c6ef5] transition-all"
+                    style={{ width: `${workflow.progress}%` }}
+                  />
+                </div>
+                <div className="mt-2 text-xs text-ink-faint">{workflow.progress}%</div>
+              </div>
+              <div className="mt-4">
                 <div className="text-xs uppercase tracking-[0.18em] text-ink-faint">约束</div>
                 <div className="mt-2 space-y-2">
                   {workflow.requirement.constraints.map((constraint) => (
@@ -255,6 +304,9 @@ export function WorkflowConfirm({
                         <span className="rounded-full bg-[#ece7dc] px-2 py-1 text-[11px] text-ink-soft">
                           {node.llm}
                         </span>
+                        <span className="rounded-full bg-[#f3efe6] px-2 py-1 text-[11px] text-ink-soft">
+                          {node.runtime_status ?? 'waiting'}
+                        </span>
                       </div>
                       <div className="mt-2 text-sm leading-6 text-ink-soft">{node.task}</div>
                       <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink-faint">
@@ -273,6 +325,24 @@ export function WorkflowConfirm({
                 </div>
               ))}
             </div>
+            {workflow.execution_logs.length > 0 ? (
+              <div className="mt-5 border-t border-line pt-4">
+                <div className="text-sm font-medium text-ink">节点交接摘要</div>
+                <div className="mt-3 space-y-3">
+                  {workflow.execution_logs.map((log) => (
+                    <div
+                      key={log.node_id}
+                      className="rounded-[18px] border border-line bg-white/90 px-4 py-3"
+                    >
+                      <div className="text-xs text-ink-faint">
+                        {log.role} · {log.node_id}
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-ink-soft">{log.summary}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

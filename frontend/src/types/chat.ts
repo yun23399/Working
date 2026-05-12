@@ -119,6 +119,7 @@ export interface WorkflowUpdateEvent {
   conversation_id: string
   timestamp: string
   payload: {
+    workflow_id: number
     node_id: string
     status: string
     progress: number

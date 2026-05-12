@@ -11,6 +11,7 @@ import {
 import {
   confirmWorkflowPreview,
   createWorkflowPreview,
+  executeWorkflow,
   fetchConversationWorkflows,
 } from '../api/workflows'
 import { ChatWindow } from '../components/chat/ChatWindow'
@@ -65,6 +66,7 @@ function resolveChatError(error: unknown): string {
 export function Chat() {
   const navigate = useNavigate()
   const bootstrappedRef = useRef(false)
+  const workflowRefreshTimersRef = useRef<Record<string, number>>({})
   const clearSession = useAuthStore((state) => state.clearSession)
   const setUser = useAuthStore((state) => state.setUser)
   const token = useAuthStore((state) => state.token)
@@ -108,6 +110,7 @@ export function Chat() {
   const loadingConversationId = useWorkflowStore((state) => state.loadingConversationId)
   const generatingConversationId = useWorkflowStore((state) => state.generatingConversationId)
   const confirmingWorkflowId = useWorkflowStore((state) => state.confirmingWorkflowId)
+  const executingWorkflowId = useWorkflowStore((state) => state.executingWorkflowId)
   const setWorkflowList = useWorkflowStore((state) => state.setWorkflowList)
   const upsertWorkflow = useWorkflowStore((state) => state.upsertWorkflow)
   const setWorkflowLoadingConversationId = useWorkflowStore(
@@ -118,6 +121,9 @@ export function Chat() {
   )
   const setWorkflowConfirmingWorkflowId = useWorkflowStore(
     (state) => state.setConfirmingWorkflowId,
+  )
+  const setWorkflowExecutingWorkflowId = useWorkflowStore(
+    (state) => state.setExecutingWorkflowId,
   )
   const setWorkflowError = useWorkflowStore((state) => state.setError)
   const clearWorkflowState = useWorkflowStore((state) => state.clearWorkflowState)
@@ -142,8 +148,8 @@ export function Chat() {
     activeConversationId !== null && generatingConversationId === activeConversationId
   const isConfirmingWorkflow =
     activeWorkflowPreview !== null && confirmingWorkflowId === activeWorkflowPreview.workflow_id
-
-  useWebSocket(activeConversationId, token)
+  const isExecutingWorkflow =
+    activeWorkflowPreview !== null && executingWorkflowId === activeWorkflowPreview.workflow_id
 
   useEffect(() => {
     if (!token) {
@@ -173,6 +179,100 @@ export function Chat() {
       setError(message)
     }
   }, [handleUnauthorized, setActiveConversationId, setError, setMessages])
+
+  const refreshConversationRuntimeState = useCallback(
+    async (conversationId: number, authToken: string) => {
+      try {
+        const [workflows, records] = await Promise.all([
+          fetchConversationWorkflows(authToken, conversationId),
+          fetchConversationMessages(authToken, conversationId),
+        ])
+        setWorkflowList(conversationId, workflows)
+        setMessages(records.map(toChatMessage))
+        touchConversation(conversationId)
+        setError(null)
+        setWorkflowError(null)
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 401) {
+          handleUnauthorized()
+          return
+        }
+
+        setWorkflowError(resolveChatError(error))
+      }
+    },
+    [
+      handleUnauthorized,
+      setError,
+      setMessages,
+      setWorkflowError,
+      setWorkflowList,
+      touchConversation,
+    ],
+  )
+
+  const scheduleWorkflowRefresh = useCallback(
+    (conversationId: number, workflowId: number, delayMs: number) => {
+      if (!token) {
+        return
+      }
+
+      const refreshKey = `${conversationId}-${workflowId}`
+      const existingTimer = workflowRefreshTimersRef.current[refreshKey]
+      if (existingTimer !== undefined) {
+        window.clearTimeout(existingTimer)
+      }
+
+      workflowRefreshTimersRef.current[refreshKey] = window.setTimeout(() => {
+        delete workflowRefreshTimersRef.current[refreshKey]
+        void refreshConversationRuntimeState(conversationId, token)
+      }, delayMs)
+    },
+    [refreshConversationRuntimeState, token],
+  )
+
+  const handleWorkflowUpdateEvent = useCallback(
+    (event: {
+      conversation_id: string
+      payload: {
+        workflow_id: number
+        node_id: string
+        status: string
+        progress: number
+      }
+    }) => {
+      const nextConversationId = Number(event.conversation_id)
+      if (!Number.isFinite(nextConversationId) || activeConversationId !== nextConversationId) {
+        return
+      }
+
+      if (event.payload.status === 'done' || event.payload.status === 'failed') {
+        scheduleWorkflowRefresh(nextConversationId, event.payload.workflow_id, 250)
+      }
+
+      if (
+        event.payload.progress >= 1 ||
+        event.payload.status === 'failed' ||
+        event.payload.node_id === 'workflow'
+      ) {
+        scheduleWorkflowRefresh(nextConversationId, event.payload.workflow_id, 500)
+      }
+    },
+    [activeConversationId, scheduleWorkflowRefresh],
+  )
+
+  useWebSocket(activeConversationId, token, {
+    onWorkflowUpdate: handleWorkflowUpdateEvent,
+  })
+
+  useEffect(() => {
+    return () => {
+      Object.values(workflowRefreshTimersRef.current).forEach((timerId) => {
+        window.clearTimeout(timerId)
+      })
+      workflowRefreshTimersRef.current = {}
+    }
+  }, [])
 
   const createConversationForCurrentProject = useCallback(async (authToken: string) => {
     try {
@@ -540,6 +640,40 @@ export function Chat() {
     }
   }
 
+  const handleExecuteWorkflow = async () => {
+    if (!token) {
+      handleUnauthorized()
+      return
+    }
+
+    if (activeConversationId === null || !activeWorkflowPreview) {
+      setWorkflowError('当前还没有可执行的工作流')
+      return
+    }
+
+    setWorkflowExecutingWorkflowId(activeWorkflowPreview.workflow_id)
+    setWorkflowError(null)
+
+    try {
+      const runningWorkflow = await executeWorkflow(
+        token,
+        activeConversationId,
+        activeWorkflowPreview.workflow_id,
+      )
+      upsertWorkflow(runningWorkflow)
+      scheduleWorkflowRefresh(activeConversationId, activeWorkflowPreview.workflow_id, 400)
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setWorkflowError(resolveChatError(error))
+    } finally {
+      setWorkflowExecutingWorkflowId(null)
+    }
+  }
+
   const handleLogout = () => {
     clearSession()
     clearChatState()
@@ -594,6 +728,7 @@ export function Chat() {
               isLoading={isLoadingWorkflow}
               isGenerating={isGeneratingWorkflow}
               isConfirming={isConfirmingWorkflow}
+              isExecuting={isExecutingWorkflow}
               onGenerate={() => {
                 void handleGenerateWorkflowPreview(false)
               }}
@@ -602,6 +737,9 @@ export function Chat() {
               }}
               onConfirm={() => {
                 void handleConfirmWorkflowPreview()
+              }}
+              onExecute={() => {
+                void handleExecuteWorkflow()
               }}
             />
             <div className="min-h-0 flex-1 overflow-hidden rounded-[24px] border border-line bg-white/80 shadow-sm">

@@ -30,6 +30,7 @@ class WorkflowNodeSchema(BaseModel):
     llm: str
     max_retries: int = Field(ge=0)
     depends_on: list[str]
+    runtime_status: str | None = None
 
 
 class WorkflowDagSchema(BaseModel):
@@ -39,13 +40,24 @@ class WorkflowDagSchema(BaseModel):
     execution_mode: str
 
 
+class WorkflowExecutionLogSchema(BaseModel):
+    """工作流执行日志模型，描述节点完成后的最小交接摘要"""
+
+    node_id: str
+    role: str
+    summary: str
+    status: str
+
+
 class WorkflowPreviewResponseSchema(BaseModel):
     """工作流预览响应模型，返回需求摘要和 DAG 结果"""
 
     workflow_id: int
     conversation_id: int
     status: str
+    progress: int
     requirement: RequirementSummarySchema
     dag: WorkflowDagSchema
+    execution_logs: list[WorkflowExecutionLogSchema]
     created_at: datetime
     updated_at: datetime

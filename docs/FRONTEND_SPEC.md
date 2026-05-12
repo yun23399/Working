@@ -39,6 +39,8 @@
 - 支持发送消息和接收流式回复
 - 支持按最小项目分组切换历史对话
 - 支持生成、重新规划和确认工作流预览
+- 支持启动最小工作流执行，并实时展示进度
+- 支持在节点完成、失败和终态后自动刷新执行日志与节点摘要消息
 - 支持退出登录
 
 状态定义：
@@ -58,6 +60,7 @@
 - `loadingConversationId`
 - `generatingConversationId`
 - `confirmingWorkflowId`
+- `executingWorkflowId`
 - `workflowErrorMessage`
 
 交互说明：
@@ -69,6 +72,10 @@
 - 生成预览按钮：基于当前对话历史请求后端生成预览
 - 重新规划按钮：基于当前对话历史重新创建预览版本
 - 确认工作流按钮：将当前预览标记为已确认
+- 开始执行按钮：启动当前已确认工作流的最小串行执行
+- 执行进度条：显示当前工作流进度百分比
+- 节点状态标签：展示 waiting / running / done / failed
+- 执行刷新：节点完成或工作流结束时自动回拉最新工作流和消息历史
 - 发送按钮：提交当前输入内容
 - WebSocket 断线：自动重连最多 3 次
 
@@ -214,7 +221,8 @@ interface ChatWindowProps {
 
 - 展示当前对话的最新工作流预览
 - 展示需求摘要、约束、输出类型和节点拆分结果
-- 支持生成预览、重新规划和确认预览
+- 支持生成预览、重新规划、确认预览和开始执行
+- 展示执行进度、节点状态和交接摘要
 - 展示工作流相关错误与加载状态
 
 Props：
@@ -228,9 +236,11 @@ interface WorkflowConfirmProps {
   isLoading: boolean
   isGenerating: boolean
   isConfirming: boolean
+  isExecuting: boolean
   onGenerate: () => void
   onReplan: () => void
   onConfirm: () => void
+  onExecute: () => void
 }
 ```
 
@@ -305,6 +315,7 @@ interface StreamingTextProps {
 
 - 按对话缓存工作流预览列表
 - 维护预览加载、生成和确认中的状态
+- 维护执行中的工作流编号与节点状态
 - 保存工作流相关错误提示
 - 为聊天页提供当前对话的最新预览
 
@@ -360,6 +371,7 @@ useWebSocket(conversationId: number | null, token: string | null)
 - `fetchConversationWorkflows`
 - `createWorkflowPreview`
 - `confirmWorkflowPreview`
+- `executeWorkflow`
 
 ## 6. 当前交互闭环
 
@@ -375,7 +387,8 @@ useWebSocket(conversationId: number | null, token: string | null)
 8. 接收流式回复
 9. 基于当前对话生成工作流预览
 10. 确认或重新规划工作流预览
-11. 刷新页面后恢复登录态和项目映射
+11. 启动最小工作流执行并查看节点状态
+12. 刷新页面后恢复登录态和项目映射
 
 ## 7. 规划中的可复用组件
 

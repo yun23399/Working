@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-12
-> 更新者：Codex（会话 #10）
+> 更新者：Codex（会话 #13）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段二：工作流引擎（已完成最小工作流预览确认链路，完整执行引擎继续推进）**
+**⏳ 阶段二：工作流引擎（已完成最小工作流预览、确认、执行与前端结果刷新链路）**
 
 ---
 
@@ -17,7 +17,7 @@
 | 阶段 | 状态 | 说明 |
 |------|------|------|
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
-| 阶段二：工作流引擎 | ⏳ 进行中 | 已完成最小工作流预览、重新规划与确认链路 |
+| 阶段二：工作流引擎 | ⏳ 进行中 | 已完成最小工作流预览、重新规划、确认、执行与结果刷新链路 |
 | 阶段三：工具集接入 | ⏳ 待开始 | 依赖阶段二完成 |
 | 阶段四：完善体验 | ⏳ 待开始 | 依赖阶段三完成 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
@@ -91,8 +91,8 @@
 - [x] 工作流规划器（workflow_planner.py）
 - [x] 工作流预览 API 与持久化（workflow.py / workflow_service.py / workflows.py）
 - [x] 工作流预览确认界面（WorkflowConfirm.tsx）
-- [ ] DAG 编排器（dag_orchestrator.py）
-- [ ] Agent 生成器（agent_spawner.py）
+- [x] DAG 编排器（dag_orchestrator.py）
+- [x] Agent 生成器（agent_spawner.py）
 - [ ] 预置角色模板（前端/后端/测试/PM/设计师）
 - [ ] 共享工作区（workspace.py）
 - [ ] 断点控制（checkpoint.py）
@@ -147,6 +147,8 @@
 - ✅ 阶段一 Step 6 Manager 基础对话 — 2026-05-12 | Manager 真实普通对话、消息持久化与 WebSocket 事件链实测通过
 - ✅ 阶段一 Step 7 最小项目/历史视图收尾 — 2026-05-12 | 项目分组、本地历史映射、项目页切换、环境统一与浏览器回归通过
 - ✅ 阶段二最小工作流预览链路 — 2026-05-12 | 需求提取、DAG 预览、重新规划、确认状态与聊天页预览卡片实测通过
+- ✅ 阶段二最小工作流执行链路 — 2026-05-12 | 串行节点执行、进度回推、执行日志与节点摘要消息实测通过
+- ✅ 阶段二执行结果前端刷新链路 — 2026-05-12 | 节点完成后自动回拉工作流与消息历史，执行日志和节点摘要可在前端补齐
 
 ---
 
@@ -364,6 +366,39 @@
   2. `backend`: `python -m ruff check .`、`python -m black --check .`、`alembic upgrade head` 通过
   3. 实测通过：`注册 -> 登录 -> 创建对话 -> 发送需求 -> 生成预览 -> 确认预览 -> 强制重新规划`
   4. 当前联调可访问：`http://127.0.0.1:8000` + `http://127.0.0.1:5173`
+
+### 2026-05-12 会话 #12
+- 执行内容：完成阶段二最小工作流执行链路
+- 新增后端文件：
+  1. `backend/app/agents/base_agent.py`
+  2. `backend/app/agents/agent_runner.py`
+  3. `backend/app/workflow/agent_spawner.py`
+  4. `backend/app/workflow/dag_orchestrator.py`
+  5. `backend/alembic/versions/20260512_000004_add_workflow_execution_state.py`
+- 关键改造：
+  1. `workflows` 表新增 `progress` 与 `execution_log_json`
+  2. 工作流新增执行接口 `/api/workflows/{conversation_id}/{workflow_id}/execute`
+  3. 已确认工作流可进入最小串行执行流程，并通过 WebSocket 推送 `workflow_update`
+  4. 节点执行结果会写入 `execution_logs`，同时追加到对话历史消息
+  5. 前端工作流卡片新增开始执行、进度条、节点状态与交接摘要展示
+- 验证结果：
+  1. `frontend`: `npm run lint`、`npm run build` 通过
+  2. `backend`: `python -m ruff check .`、`python -m black --check .`、`alembic upgrade head` 通过
+  3. 实测通过：`注册 -> 登录 -> 创建对话 -> 发送需求 -> 生成预览 -> 确认预览 -> 开始执行 -> 工作流 completed`
+  4. 实测结果：工作流 `progress=100`、`execution_logs=3`、对话新增 3 条节点摘要消息
+
+### 2026-05-12 会话 #13
+- 执行内容：补齐阶段二执行结果前端刷新链路，并统一工作流响应中的节点运行态
+- 关键改造：
+  1. `frontend/src/hooks/useWebSocket.ts` 增加工作流事件回调扩展点
+  2. `frontend/src/pages/Chat.tsx` 在节点完成/失败与终态时自动回拉 `workflows` 与 `messages`
+  3. `backend/app/services/workflow_service.py` 为工作流接口响应推导 `runtime_status`
+  4. 重新执行已完成工作流时会重置 `progress` 与 `execution_logs`
+- 验证结果：
+  1. `frontend`: `npm run lint`、`npm run build` 通过
+  2. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  3. API 实测通过：执行启动响应返回节点运行态 `running / waiting / waiting`
+  4. API 实测通过：执行完成后工作流 `completed`、`progress=100`、`execution_logs=3`、节点摘要消息入库
 
 ---
 

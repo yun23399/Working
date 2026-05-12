@@ -38,3 +38,18 @@ export async function confirmWorkflowPreview(
     },
   )
 }
+
+// 启动指定工作流的最小执行链路
+export async function executeWorkflow(
+  token: string,
+  conversationId: number,
+  workflowId: number,
+): Promise<WorkflowPreview> {
+  return requestJson<WorkflowPreview>(
+    `/api/workflows/${conversationId}/${workflowId}/execute`,
+    {
+      method: 'POST',
+      token,
+    },
+  )
+}

@@ -1,11 +1,16 @@
-"""工作流路由模块，提供预览生成、查询与确认接口"""
+"""工作流路由模块，提供预览生成、查询、确认与执行接口"""
+
+import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.database import SessionLocal
+from app.models.conversation import Conversation
 from app.models.user import User
+from app.models.workflow import Workflow
 from app.schemas.workflow import (
     WorkflowPreviewRequestSchema,
     WorkflowPreviewResponseSchema,
@@ -20,10 +25,31 @@ from app.services.workflow_service import (
     create_workflow_preview,
     get_workflow_by_id,
     list_workflows_by_conversation,
+    mark_workflow_running,
     workflow_to_response,
 )
+from app.workflow.dag_orchestrator import DagOrchestrator, WorkflowExecutionError
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
+
+
+async def run_workflow_execution_async(workflow_id: int) -> None:
+    """后台执行已确认工作流，避免阻塞当前 HTTP 请求"""
+
+    orchestrator = DagOrchestrator()
+    with SessionLocal() as db:
+        workflow = db.get(Workflow, workflow_id)
+        if workflow is None:
+            return
+
+        conversation = db.get(Conversation, workflow.conversation_id)
+        if conversation is None:
+            return
+
+        try:
+            await orchestrator.execute(db, workflow, conversation)
+        except WorkflowExecutionError:
+            return
 
 
 @router.get(
@@ -118,6 +144,57 @@ def confirm_workflow_preview_endpoint(
             detail={
                 "error": "确认工作流预览失败",
                 "code": "CONFIRM_WORKFLOW_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+
+
+@router.post(
+    "/{conversation_id}/{workflow_id}/execute",
+    response_model=WorkflowPreviewResponseSchema,
+)
+async def execute_workflow_endpoint(
+    conversation_id: int,
+    workflow_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> WorkflowPreviewResponseSchema:
+    """启动已确认工作流的最小串行执行链路"""
+
+    try:
+        conversation = get_conversation_by_owner(db, conversation_id, current_user)
+        workflow = get_workflow_by_id(db, workflow_id, conversation.id)
+        if workflow.status not in {"confirmed", "completed", "failed"}:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "工作流状态不允许执行",
+                    "code": "INVALID_WORKFLOW_STATUS",
+                    "detail": f"当前状态 `{workflow.status}` 不允许启动执行",
+                },
+            )
+
+        running_workflow = mark_workflow_running(db, workflow)
+        asyncio.create_task(run_workflow_execution_async(running_workflow.id))
+        return workflow_to_response(running_workflow)
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "工作流预览不存在",
+                "code": "WORKFLOW_NOT_FOUND",
+                "detail": f"工作流 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "启动工作流执行失败",
+                "code": "EXECUTE_WORKFLOW_FAILED",
                 "detail": str(exc),
             },
         ) from exc

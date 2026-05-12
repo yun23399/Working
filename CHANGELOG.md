@@ -57,3 +57,14 @@
 - 新增 `workflows` 表 Alembic 迁移
 - 聊天页接入“生成预览 / 重新规划 / 确认工作流”闭环
 - 文档同步到当前阶段二最小工作流预览实现
+
+### 阶段二执行增量
+
+- 新增最小 DAG 编排器 `dag_orchestrator.py`
+- 新增最小 Agent 生成器 `agent_spawner.py`
+- 新增通用执行 Agent 运行时
+- 工作流支持 `progress` 与 `execution_logs`
+- 新增工作流执行接口 `/api/workflows/{conversation_id}/{workflow_id}/execute`
+- 前端工作流卡片新增开始执行、进度条、节点状态与交接摘要展示
+- 前端在执行过程中可自动刷新工作流与消息历史，补齐节点摘要与执行日志
+- 工作流接口响应补充节点 `runtime_status`，避免前端刷新后状态回退

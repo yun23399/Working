@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import asdict
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from app.models.workflow import Workflow
 from app.schemas.workflow import (
     RequirementSummarySchema,
     WorkflowDagSchema,
+    WorkflowExecutionLogSchema,
     WorkflowNodeSchema,
     WorkflowPreviewResponseSchema,
 )
@@ -68,6 +70,8 @@ def create_workflow_preview(
         conversation_id=conversation.id,
         requirement_json=json.dumps(asdict(requirement), ensure_ascii=False),
         dag_json=json.dumps(asdict(dag), ensure_ascii=False),
+        execution_log_json="[]",
+        progress=0,
         status="draft",
     )
     db.add(workflow)
@@ -86,21 +90,90 @@ def confirm_workflow_preview(db: Session, workflow: Workflow) -> Workflow:
     return workflow
 
 
+def mark_workflow_running(db: Session, workflow: Workflow) -> Workflow:
+    """将工作流标记为运行中，并清空上一轮执行现场"""
+
+    workflow.status = "running"
+    workflow.progress = 0
+    workflow.execution_log_json = "[]"
+    db.add(workflow)
+    db.commit()
+    db.refresh(workflow)
+    return workflow
+
+
+def build_node_runtime_status_map(
+    workflow: Workflow,
+    dag_payload: dict[str, Any],
+    execution_log_payload: list[dict[str, Any]],
+) -> dict[str, str]:
+    """根据当前工作流状态和执行日志推导节点运行态"""
+
+    node_ids = [str(node["id"]) for node in dag_payload["nodes"]]
+    completed_node_ids = {
+        str(item["node_id"])
+        for item in execution_log_payload
+        if item.get("status") == "done" and item.get("node_id") is not None
+    }
+    first_pending_node_id = next(
+        (node_id for node_id in node_ids if node_id not in completed_node_ids),
+        None,
+    )
+
+    runtime_status_map: dict[str, str] = {}
+    for node_id in node_ids:
+        if workflow.status == "completed":
+            runtime_status_map[node_id] = "done"
+            continue
+
+        if node_id in completed_node_ids:
+            runtime_status_map[node_id] = "done"
+            continue
+
+        if workflow.status == "running" and node_id == first_pending_node_id:
+            runtime_status_map[node_id] = "running"
+            continue
+
+        if workflow.status == "failed" and node_id == first_pending_node_id:
+            runtime_status_map[node_id] = "failed"
+            continue
+
+        runtime_status_map[node_id] = "waiting"
+
+    return runtime_status_map
+
+
 def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
     """将工作流模型转换为前端消费的预览响应结构"""
 
     requirement_payload = json.loads(workflow.requirement_json)
     dag_payload = json.loads(workflow.dag_json)
+    execution_log_payload = json.loads(workflow.execution_log_json or "[]")
+    runtime_status_map = build_node_runtime_status_map(
+        workflow,
+        dag_payload,
+        execution_log_payload,
+    )
 
     return WorkflowPreviewResponseSchema(
         workflow_id=workflow.id,
         conversation_id=workflow.conversation_id,
         status=workflow.status,
+        progress=workflow.progress,
         requirement=RequirementSummarySchema(**requirement_payload),
         dag=WorkflowDagSchema(
             execution_mode=dag_payload["execution_mode"],
-            nodes=[WorkflowNodeSchema(**node) for node in dag_payload["nodes"]],
+            nodes=[
+                WorkflowNodeSchema(
+                    **node,
+                    runtime_status=runtime_status_map.get(str(node["id"])),
+                )
+                for node in dag_payload["nodes"]
+            ],
         ),
+        execution_logs=[
+            WorkflowExecutionLogSchema(**item) for item in execution_log_payload
+        ],
         created_at=workflow.created_at,
         updated_at=workflow.updated_at,
     )

@@ -1,0 +1,257 @@
+"""DAG 编排器，负责按依赖顺序串行执行当前工作流节点"""
+
+import json
+from typing import Any
+
+from loguru import logger
+from sqlalchemy.orm import Session
+
+from app.agents.base_agent import AgentTask
+from app.api.ws import connection_manager
+from app.core.manager.workflow_planner import WorkflowDag, WorkflowNode
+from app.models.conversation import Conversation
+from app.models.workflow import Workflow
+from app.services.conversation_service import save_agent_message
+from app.workflow.agent_spawner import AgentSpawner
+
+
+class WorkflowExecutionError(Exception):
+    """工作流执行异常，用于向接口层返回统一错误语义"""
+
+
+class DagOrchestrator:
+    """最小 DAG 编排器，当前版本只支持按依赖顺序串行执行"""
+
+    def __init__(self, agent_spawner: AgentSpawner | None = None) -> None:
+        """初始化编排器，允许注入 Agent 生成器便于扩展测试"""
+
+        self.agent_spawner = agent_spawner or AgentSpawner()
+
+    def deserialize_dag(self, workflow: Workflow) -> WorkflowDag:
+        """将持久化的 DAG JSON 反序列化为运行时对象"""
+
+        payload = json.loads(workflow.dag_json)
+        return WorkflowDag(
+            execution_mode=payload["execution_mode"],
+            nodes=[WorkflowNode(**item) for item in payload["nodes"]],
+        )
+
+    def sort_nodes(self, dag: WorkflowDag) -> list[WorkflowNode]:
+        """按依赖关系解析串行执行顺序，当前阶段仅支持线性拓扑"""
+
+        pending_nodes = {node.id: node for node in dag.nodes}
+        resolved_ids: set[str] = set()
+        ordered_nodes: list[WorkflowNode] = []
+
+        while pending_nodes:
+            ready_nodes = [
+                node
+                for node in pending_nodes.values()
+                if all(dependency in resolved_ids for dependency in node.depends_on)
+            ]
+            if not ready_nodes:
+                raise WorkflowExecutionError("当前工作流存在无法解析的循环依赖")
+
+            ready_nodes.sort(key=lambda node: node.id)
+            next_node = ready_nodes[0]
+            ordered_nodes.append(next_node)
+            resolved_ids.add(next_node.id)
+            del pending_nodes[next_node.id]
+
+        return ordered_nodes
+
+    def build_node_context(
+        self,
+        workflow: Workflow,
+        conversation: Conversation,
+        execution_logs: list[dict[str, Any]],
+    ) -> str:
+        """为节点执行整理最小上下文，包含需求、会话标题和前序摘要"""
+
+        requirement_payload = json.loads(workflow.requirement_json)
+        handoff_segments = [
+            f"{item['role']}：{item['summary']}"
+            for item in execution_logs
+            if item.get("summary")
+        ]
+        handoff_text = (
+            "\n".join(handoff_segments[-3:]) if handoff_segments else "暂无前序交接"
+        )
+
+        return (
+            f"当前对话标题：{conversation.title}\n"
+            f"需求目标：{requirement_payload['goal']}\n"
+            f"约束：{'；'.join(requirement_payload['constraints'])}\n"
+            f"最近交接：{handoff_text}"
+        )
+
+    async def push_workflow_update(
+        self,
+        workflow: Workflow,
+        node_id: str,
+        status: str,
+        progress_ratio: float,
+    ) -> None:
+        """向前端推送工作流节点状态更新事件"""
+
+        await connection_manager.broadcast(
+            "workflow_update",
+            workflow.conversation_id,
+            {
+                "workflow_id": workflow.id,
+                "node_id": node_id,
+                "status": status,
+                "progress": progress_ratio,
+            },
+        )
+
+    async def push_log(
+        self,
+        workflow: Workflow,
+        level: str,
+        message: str,
+        agent_id: str,
+    ) -> None:
+        """向前端推送工作流日志事件"""
+
+        await connection_manager.broadcast(
+            "log",
+            workflow.conversation_id,
+            {
+                "level": level,
+                "message": message,
+                "agent_id": agent_id,
+            },
+        )
+
+    async def execute(
+        self,
+        db: Session,
+        workflow: Workflow,
+        conversation: Conversation,
+    ) -> Workflow:
+        """按串行顺序执行确认后的工作流，并回写节点结果摘要"""
+
+        dag = self.deserialize_dag(workflow)
+        ordered_nodes = self.sort_nodes(dag)
+        execution_logs: list[dict[str, Any]] = []
+
+        workflow.status = "running"
+        workflow.progress = 0
+        workflow.execution_log_json = json.dumps(execution_logs, ensure_ascii=False)
+        db.add(workflow)
+        db.commit()
+        db.refresh(workflow)
+
+        await self.push_log(
+            workflow,
+            "INFO",
+            "工作流已进入执行阶段，开始按节点顺序推进",
+            "orchestrator",
+        )
+
+        total_nodes = max(len(ordered_nodes), 1)
+        for index, node in enumerate(ordered_nodes, start=1):
+            progress_before = int(((index - 1) / total_nodes) * 100)
+            await self.push_workflow_update(
+                workflow,
+                node.id,
+                "running",
+                progress_before / 100,
+            )
+            await self.push_log(
+                workflow,
+                "INFO",
+                f"{node.role} 开始执行：{node.task}",
+                node.id,
+            )
+
+            agent = self.agent_spawner.spawn(node)
+            task = AgentTask(
+                workflow_id=workflow.id,
+                conversation_id=workflow.conversation_id,
+                node_id=node.id,
+                role=node.role,
+                task=node.task,
+                context=self.build_node_context(workflow, conversation, execution_logs),
+            )
+
+            try:
+                result = await agent.run(task)
+            except Exception as exc:
+                logger.exception(
+                    "工作流 {} 节点 {} 执行失败: {}",
+                    workflow.id,
+                    node.id,
+                    exc,
+                )
+                workflow.status = "failed"
+                db.add(workflow)
+                db.commit()
+                db.refresh(workflow)
+                await self.push_log(
+                    workflow,
+                    "ERROR",
+                    f"{node.role} 执行失败：{exc}",
+                    node.id,
+                )
+                await self.push_workflow_update(
+                    workflow,
+                    node.id,
+                    "failed",
+                    workflow.progress / 100,
+                )
+                raise WorkflowExecutionError(str(exc)) from exc
+
+            execution_log = {
+                "node_id": node.id,
+                "role": node.role,
+                "summary": result.summary,
+                "status": "done",
+            }
+            execution_logs.append(execution_log)
+            workflow.execution_log_json = json.dumps(execution_logs, ensure_ascii=False)
+            workflow.progress = int((index / total_nodes) * 100)
+            db.add(workflow)
+            db.commit()
+            db.refresh(workflow)
+
+            save_agent_message(
+                db,
+                workflow.conversation_id,
+                f"[{node.role}] {result.summary}",
+                result.token_count,
+            )
+
+            await self.push_log(
+                workflow,
+                "INFO",
+                f"{node.role} 已完成，结果已写入对话历史",
+                node.id,
+            )
+            await self.push_workflow_update(
+                workflow,
+                node.id,
+                "done",
+                workflow.progress / 100,
+            )
+
+        workflow.status = "completed"
+        workflow.progress = 100
+        db.add(workflow)
+        db.commit()
+        db.refresh(workflow)
+
+        await self.push_log(
+            workflow,
+            "INFO",
+            "工作流执行完成",
+            "orchestrator",
+        )
+        await self.push_workflow_update(
+            workflow,
+            "workflow",
+            "done",
+            1.0,
+        )
+        return workflow

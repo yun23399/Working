@@ -20,6 +20,7 @@
 12. WebSocket 流式消息可用
 13. 浏览器中可完成登录、项目切换与聊天联调
 14. 工作流预览生成、重新规划与确认链路可用
+15. 最小工作流执行链路可用
 
 ## 建议命令
 
@@ -117,6 +118,18 @@ python -m playwright install chromium
 - 当前最新预览可在聊天页工作流卡片中显示
 - 当前阶段确认后仅更新状态，不启动真实 DAG 执行
 
+### 用例 8：阶段二最小工作流执行链路
+
+验证结果：
+
+- `POST /api/workflows/{conversation_id}/{workflow_id}/execute` 返回 `200`
+- 工作流状态可从 `confirmed` 进入 `running` 再进入 `completed`
+- `progress` 最终到达 `100`
+- `execution_logs` 会累计 3 条节点交接摘要
+- 对话历史会追加 3 条节点执行结果消息
+- WebSocket 已接入 `workflow_update` 事件，前端可消费节点状态
+- 前端在节点完成与终态后可自动补齐 `execution_logs` 和节点摘要消息
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -146,4 +159,5 @@ httpx.AsyncClient(trust_env=False)
 3. WebSocket 是否仍可连接
 4. Alembic 迁移是否仍可执行
 5. 工作流预览是否仍可生成与确认
-6. 文档是否仍与实现一致
+6. 工作流执行是否仍可启动并完成
+7. 文档是否仍与实现一致

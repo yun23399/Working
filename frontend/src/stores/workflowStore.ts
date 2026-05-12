@@ -1,17 +1,31 @@
 import { create } from 'zustand'
-import type { WorkflowPreview } from '../types/workflow'
+import type { WorkflowExecutionLog, WorkflowPreview } from '../types/workflow'
 
 interface WorkflowState {
   workflowsByConversation: Record<number, WorkflowPreview[]>
   loadingConversationId: number | null
   generatingConversationId: number | null
   confirmingWorkflowId: number | null
+  executingWorkflowId: number | null
   errorMessage: string | null
   setWorkflowList: (conversationId: number, workflows: WorkflowPreview[]) => void
   upsertWorkflow: (workflow: WorkflowPreview) => void
   setLoadingConversationId: (conversationId: number | null) => void
   setGeneratingConversationId: (conversationId: number | null) => void
   setConfirmingWorkflowId: (workflowId: number | null) => void
+  setExecutingWorkflowId: (workflowId: number | null) => void
+  updateWorkflowProgress: (
+    conversationId: number,
+    workflowId: number,
+    nodeId: string,
+    status: string,
+    progress: number,
+  ) => void
+  appendExecutionLog: (
+    conversationId: number,
+    workflowId: number,
+    executionLog: WorkflowExecutionLog,
+  ) => void
   setError: (message: string | null) => void
   clearConversationWorkflows: (conversationId: number) => void
   clearWorkflowState: () => void
@@ -49,6 +63,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   loadingConversationId: null,
   generatingConversationId: null,
   confirmingWorkflowId: null,
+  executingWorkflowId: null,
   errorMessage: null,
   setWorkflowList: (conversationId, workflows) =>
     set((state) => ({
@@ -76,6 +91,71 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
   setGeneratingConversationId: (generatingConversationId) =>
     set({ generatingConversationId }),
   setConfirmingWorkflowId: (confirmingWorkflowId) => set({ confirmingWorkflowId }),
+  setExecutingWorkflowId: (executingWorkflowId) => set({ executingWorkflowId }),
+  updateWorkflowProgress: (conversationId, workflowId, nodeId, status, progress) =>
+    set((state) => {
+      const currentList = state.workflowsByConversation[conversationId] ?? []
+      return {
+        workflowsByConversation: {
+          ...state.workflowsByConversation,
+          [conversationId]: currentList.map((workflow) => {
+            if (workflow.workflow_id !== workflowId) {
+              return workflow
+            }
+
+            const normalizedStatus =
+              status === 'failed'
+                ? 'failed'
+                : status === 'done' && progress >= 100
+                  ? 'completed'
+                  : workflow.status === 'confirmed' && status === 'running'
+                    ? 'running'
+                    : workflow.status
+
+            return {
+              ...workflow,
+              status: normalizedStatus,
+              progress,
+              dag: {
+                ...workflow.dag,
+                nodes: workflow.dag.nodes.map((node) =>
+                  node.id === nodeId
+                    ? {
+                        ...node,
+                        runtime_status: status,
+                      }
+                    : node,
+                ),
+              },
+            }
+          }),
+        },
+      }
+    }),
+  appendExecutionLog: (conversationId, workflowId, executionLog) =>
+    set((state) => {
+      const currentList = state.workflowsByConversation[conversationId] ?? []
+      return {
+        workflowsByConversation: {
+          ...state.workflowsByConversation,
+          [conversationId]: currentList.map((workflow) => {
+            if (workflow.workflow_id !== workflowId) {
+              return workflow
+            }
+
+            return {
+              ...workflow,
+              execution_logs: [
+                ...workflow.execution_logs.filter(
+                  (item) => item.node_id !== executionLog.node_id,
+                ),
+                executionLog,
+              ],
+            }
+          }),
+        },
+      }
+    }),
   setError: (errorMessage) => set({ errorMessage }),
   clearConversationWorkflows: (conversationId) =>
     set((state) => {
@@ -92,6 +172,7 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
       loadingConversationId: null,
       generatingConversationId: null,
       confirmingWorkflowId: null,
+      executingWorkflowId: null,
       errorMessage: null,
     }),
 }))

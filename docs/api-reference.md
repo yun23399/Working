@@ -271,6 +271,7 @@ Authorization: Bearer <access_token>
     "workflow_id": 4,
     "conversation_id": 11,
     "status": "draft",
+    "progress": 0,
     "requirement": {
       "goal": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。",
       "constraints": [
@@ -289,10 +290,12 @@ Authorization: Bearer <access_token>
           "tools": ["file_tool"],
           "llm": "ollama/qwen2.5-coder:3b",
           "max_retries": 2,
-          "depends_on": []
+          "depends_on": [],
+          "runtime_status": "waiting"
         }
       ]
     },
+    "execution_logs": [],
     "created_at": "2026-05-12T20:04:37Z",
     "updated_at": "2026-05-12T20:04:37Z"
   }
@@ -326,6 +329,7 @@ Authorization: Bearer <access_token>
   "workflow_id": 3,
   "conversation_id": 11,
   "status": "draft",
+  "progress": 0,
   "requirement": {
     "goal": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。",
     "constraints": [
@@ -346,7 +350,8 @@ Authorization: Bearer <access_token>
         "tools": ["file_tool"],
         "llm": "ollama/qwen2.5-coder:3b",
         "max_retries": 2,
-        "depends_on": []
+        "depends_on": [],
+        "runtime_status": "waiting"
       },
       {
         "id": "node_2",
@@ -355,7 +360,8 @@ Authorization: Bearer <access_token>
         "tools": ["file_tool"],
         "llm": "ollama/qwen2.5-coder:3b",
         "max_retries": 2,
-        "depends_on": ["node_1"]
+        "depends_on": ["node_1"],
+        "runtime_status": "waiting"
       },
       {
         "id": "node_3",
@@ -364,10 +370,12 @@ Authorization: Bearer <access_token>
         "tools": ["code_executor", "file_tool"],
         "llm": "ollama/qwen2.5-coder:3b",
         "max_retries": 3,
-        "depends_on": ["node_2"]
+        "depends_on": ["node_2"],
+        "runtime_status": "waiting"
       }
     ]
   },
+  "execution_logs": [],
   "created_at": "2026-05-12T20:04:37Z",
   "updated_at": "2026-05-12T20:04:37Z"
 }
@@ -377,7 +385,8 @@ Authorization: Bearer <access_token>
 
 - 当当前对话已有预览且 `force_replan=false` 时，直接返回最新预览
 - 当 `force_replan=true` 时，会基于当前对话历史重新创建一条新的预览记录
-- 当前阶段只做预览与确认，不触发真实 DAG 执行
+- 当前阶段会返回 `progress`、`execution_logs` 和节点 `runtime_status`
+- 预览阶段默认所有节点为 `waiting`
 
 错误码：
 
@@ -399,6 +408,7 @@ Authorization: Bearer <access_token>
   "workflow_id": 3,
   "conversation_id": 11,
   "status": "confirmed",
+  "progress": 0,
   "requirement": {
     "goal": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。",
     "constraints": [
@@ -409,8 +419,20 @@ Authorization: Bearer <access_token>
   },
   "dag": {
     "execution_mode": "serial",
-    "nodes": []
+    "nodes": [
+      {
+        "id": "node_1",
+        "role": "需求分析师",
+        "task": "梳理目标、约束与交付范围，输出执行摘要。",
+        "tools": ["file_tool"],
+        "llm": "ollama/qwen2.5-coder:3b",
+        "max_retries": 2,
+        "depends_on": [],
+        "runtime_status": "waiting"
+      }
+    ]
   },
+  "execution_logs": [],
   "created_at": "2026-05-12T20:04:37Z",
   "updated_at": "2026-05-12T20:04:40Z"
 }
@@ -424,6 +446,67 @@ Authorization: Bearer <access_token>
 - `CONVERSATION_NOT_FOUND`
 - `WORKFLOW_NOT_FOUND`
 - `CONFIRM_WORKFLOW_FAILED`
+
+---
+
+### POST /api/workflows/{conversation_id}/{workflow_id}/execute
+
+用途：启动已确认工作流的最小串行执行链路。
+
+成功响应：
+
+```json
+{
+  "workflow_id": 7,
+  "conversation_id": 16,
+  "status": "running",
+  "progress": 0,
+  "requirement": {
+    "goal": "请规划一个需要前端页面、文档和确认流程的项目。",
+    "constraints": [
+      "需围绕当前对话《阶段二执行验证 231339》推进"
+    ],
+    "output_types": ["code", "document"],
+    "context": "请规划一个需要前端页面、文档和确认流程的项目。"
+  },
+  "dag": {
+    "execution_mode": "serial",
+    "nodes": [
+      {
+        "id": "node_1",
+        "role": "需求分析师",
+        "task": "梳理目标、约束与交付范围，输出执行摘要。",
+        "tools": ["file_tool"],
+        "llm": "ollama/qwen2.5-coder:3b",
+        "max_retries": 2,
+        "depends_on": [],
+        "runtime_status": "running"
+      }
+    ]
+  },
+  "execution_logs": [],
+  "created_at": "2026-05-12T23:13:39Z",
+  "updated_at": "2026-05-12T23:13:39Z"
+}
+```
+
+说明：
+
+- 当前版本只支持最小串行执行，不支持并发节点和断点恢复
+- 执行过程通过 WebSocket `workflow_update` 和 `log` 事件回推到前端
+- 前端在节点完成、失败和终态时会自动回拉工作流与消息历史，补齐 `execution_logs` 与节点摘要消息
+- 每个节点完成后会向当前对话追加一条角色摘要消息
+- 执行完成后，`status` 会更新为 `completed`，并回写 `progress` 与 `execution_logs`
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `WORKFLOW_NOT_FOUND`
+- `INVALID_WORKFLOW_STATUS`
+- `EXECUTE_WORKFLOW_FAILED`
 
 ---
 

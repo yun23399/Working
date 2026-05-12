@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { buildConversationWebSocketUrl } from '../api/client'
 import { useChatStore } from '../stores/chatStore'
+import { useWorkflowStore } from '../stores/workflowStore'
 import type { ConversationSocketEvent } from '../types/chat'
 
 function isConversationSocketEvent(value: unknown): value is ConversationSocketEvent {
@@ -31,14 +32,24 @@ function parseConversationSocketEvent(rawValue: string): ConversationSocketEvent
   return null
 }
 
+interface UseWebSocketOptions {
+  onWorkflowUpdate?: (event: Extract<ConversationSocketEvent, { type: 'workflow_update' }>) => void
+}
+
 // 建立对话级 WebSocket 连接，并处理最多三次自动重连
-export function useWebSocket(conversationId: number | null, token: string | null) {
+export function useWebSocket(
+  conversationId: number | null,
+  token: string | null,
+  options?: UseWebSocketOptions,
+) {
   const addLog = useChatStore((state) => state.addLog)
   const appendAssistantToken = useChatStore((state) => state.appendAssistantToken)
   const finalizeAssistantStream = useChatStore((state) => state.finalizeAssistantStream)
   const setError = useChatStore((state) => state.setError)
   const setSocketStatus = useChatStore((state) => state.setSocketStatus)
   const startAssistantStream = useChatStore((state) => state.startAssistantStream)
+  const updateWorkflowProgress = useWorkflowStore((state) => state.updateWorkflowProgress)
+  const onWorkflowUpdate = options?.onWorkflowUpdate
 
   useEffect(() => {
     if (conversationId === null || token === null) {
@@ -106,6 +117,16 @@ export function useWebSocket(conversationId: number | null, token: string | null
               agentId: event.payload.agent_id,
             })
             break
+          case 'workflow_update':
+            updateWorkflowProgress(
+              conversationId,
+              event.payload.workflow_id,
+              event.payload.node_id,
+              event.payload.status,
+              Math.round(event.payload.progress * 100),
+            )
+            onWorkflowUpdate?.(event)
+            break
           case 'error':
             finalizeAssistantStream()
             setError(event.payload.message)
@@ -164,5 +185,7 @@ export function useWebSocket(conversationId: number | null, token: string | null
     setSocketStatus,
     startAssistantStream,
     token,
+    onWorkflowUpdate,
+    updateWorkflowProgress,
   ])
 }
