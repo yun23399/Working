@@ -20,6 +20,8 @@
 - 工作流响应新增 `project_memory`，同一对话下可跨工作流复用长期目标、关键摘要与最近异常
 - 新增工具基类 `base_tool.py`
 - 新增最小代码执行工具 `code_executor.py`
+- 新增最小文件读写工具 `file_tool.py`
+- 角色模板命中 `file_tool` 时会在共享工作区 `artifacts/` 生成真实摘要文件
 - `backend` / `frontend` 模板命中 `code_executor` 时会在共享工作区 `artifacts/` 生成真实计划文件
 - `workspace.artifacts` 与节点 `execution_logs[].artifacts` 已支持返回真实产物路径
 - 修复 Windows 下代码执行工具在 `uvicorn --reload` 环境中的子进程兼容问题

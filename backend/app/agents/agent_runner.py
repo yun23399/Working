@@ -1,11 +1,17 @@
 """Agent 运行时，负责基于统一 LLM 适配器执行节点任务"""
 
+import json
 from pathlib import Path
 
 from app.agents.base_agent import AgentResult, AgentTask, BaseAgent
 from app.agents.templates import get_role_template
 from app.core.llm.adapter import ChatMessage, LLMAdapter
-from app.tools import CodeExecutionError, CodeExecutorTool
+from app.tools import (
+    CodeExecutionError,
+    CodeExecutorTool,
+    FileTool,
+    FileToolError,
+)
 
 
 class GenericTaskAgent(BaseAgent):
@@ -23,6 +29,7 @@ class GenericTaskAgent(BaseAgent):
         super().__init__(role=role, llm_model=llm_model, max_retries=max_retries)
         self.adapter = LLMAdapter()
         self.template = get_role_template(template_id)
+        self.file_tool = FileTool()
         self.code_executor = CodeExecutorTool()
 
     def build_messages(self, task: AgentTask) -> list[ChatMessage]:
@@ -80,6 +87,40 @@ class GenericTaskAgent(BaseAgent):
             "print('backend artifact generated')\""
         )
 
+    def build_file_tool_instruction(
+        self,
+        task: AgentTask,
+        content: str,
+    ) -> str:
+        """根据当前角色构造文件写入指令，沉淀文本型交付物"""
+
+        file_name_map = {
+            "PM": "pm_summary.md",
+            "前端工程师": "frontend_summary.md",
+            "后端工程师": "backend_summary.md",
+            "测试工程师": "qa_checklist.md",
+            "设计师": "design_brief.md",
+        }
+        file_name = file_name_map.get(
+            self.role,
+            f"{self.template.template_id}_summary.md",
+        )
+        rendered_content = (
+            f"# {self.role} 交付摘要\n\n"
+            f"- 工作流节点：{task.node_id}\n"
+            f"- 模板编号：{self.template.template_id}\n"
+            f"- 任务描述：{task.task}\n\n"
+            f"## 执行结果\n\n{content}\n"
+        )
+        return json.dumps(
+            {
+                "action": "write",
+                "path": f"artifacts/{file_name}",
+                "content": rendered_content,
+            },
+            ensure_ascii=False,
+        )
+
     async def run(self, task: AgentTask) -> AgentResult:
         """执行节点任务并返回完整文本摘要"""
 
@@ -89,13 +130,24 @@ class GenericTaskAgent(BaseAgent):
 
         content = "".join(parts).strip()
         artifacts: list[str] = []
+        if "file_tool" in self.template.default_tools:
+            try:
+                tool_result = await self.file_tool.execute(
+                    workspace_path=task.workspace_path,
+                    instruction=self.build_file_tool_instruction(task, content),
+                )
+                artifacts.extend(tool_result.artifacts)
+                content = f"{content}\n\n文件产出：{tool_result.summary}"
+            except FileToolError as exc:
+                content = f"{content}\n\n文件产出失败：{exc}"
+
         if "code_executor" in self.template.default_tools:
             try:
                 tool_result = await self.code_executor.execute(
                     workspace_path=task.workspace_path,
                     instruction=self.build_code_execution_command(task),
                 )
-                artifacts = tool_result.artifacts
+                artifacts.extend(tool_result.artifacts)
                 content = f"{content}\n\n工具执行：{tool_result.summary}"
             except CodeExecutionError as exc:
                 content = f"{content}\n\n工具执行失败：{exc}"
@@ -103,5 +155,5 @@ class GenericTaskAgent(BaseAgent):
         return AgentResult(
             summary=content,
             token_count=max(len(parts), 1),
-            artifacts=artifacts,
+            artifacts=sorted(set(artifacts)),
         )

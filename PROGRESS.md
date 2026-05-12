@@ -105,7 +105,7 @@
 ## 阶段三：任务清单（进行中）
 
 - [x] 代码执行工具（code_executor.py）
-- [ ] 文件读写工具（file_tool.py）
+- [x] 文件读写工具（file_tool.py）
 - [ ] 外部 API 调用工具（api_caller.py）
 - [ ] Playwright 浏览器自动化工具（browser_tool.py）
 - [ ] 图像生成工具（image_tool.py）
@@ -156,6 +156,7 @@
 - ✅ 阶段二错误恢复链路 — 2026-05-13 | 工作流已支持节点重试、失败回滚、层级上报、恢复建议与人工改向重跑
 - ✅ 阶段二项目级记忆链路 — 2026-05-13 | 工作流已支持跨工作流沉淀长期目标、关键摘要与最近异常
 - ✅ 阶段三代码执行工具链路 — 2026-05-13 | 工作流已支持最小受限 `python` / `node` 执行、真实计划产物落盘与产物路径回传
+- ✅ 阶段三文件读写工具链路 — 2026-05-13 | 工作流已支持在共享工作区安全写入文本摘要，并将 `.md` 产物回传到执行结果
 
 ---
 
@@ -518,6 +519,21 @@
   2. `frontend`: `npm run lint`、`npm run build` 通过
   3. API 实测通过：`conversation_38 / workflow_38` 执行完成后，`workspace.artifacts` 返回 `backend_plan.json` 与 `code_execution_result.json`
   4. API 实测通过：节点 `execution_logs[].artifacts` 与磁盘目录 `workspace/projects/conversation_38/workflow_38/artifacts/` 内容一致
+
+### 2026-05-13 会话 #21
+- 执行内容：完成阶段三 `file_tool` 最小真实链路
+- 新增后端文件：
+  1. `backend/app/tools/file_tool.py`
+- 关键改造：
+  1. `backend/app/tools/__init__.py` 新增 `FileTool` 与 `FileToolError` 导出
+  2. `backend/app/agents/agent_runner.py` 接入 `FileTool`
+  3. 命中 `file_tool` 的角色模板会在共享工作区 `artifacts/` 下生成 `.md` 交付摘要
+  4. 文件工具增加工作区路径越界校验，仅允许在当前工作流目录内读写
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. API 实测通过：`conversation_40 / workflow_40` 执行完成后，`workspace.artifacts` 返回 `pm_summary.md`、`backend_summary.md`、`backend_plan.json` 与 `code_execution_result.json`
+  4. API 实测通过：节点 `execution_logs[].artifacts` 与磁盘目录 `workspace/projects/conversation_40/workflow_40/artifacts/` 内容一致
 
 ---
 
