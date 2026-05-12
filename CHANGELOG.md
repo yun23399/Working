@@ -2,6 +2,14 @@
 
 ## 2026-05-13
 
+### 后端能力
+
+- 新增共享工作区管理器 `workspace.py`
+- 工作流新增 `workspace_path`、`workspace_state_json`、`handoff_log_json` 持久化字段
+- 工作流执行时会在仓库根目录 `workspace/projects/...` 初始化专属工作区
+- 节点执行前后会回写工作区状态快照和节点交接记录
+- 工作流接口响应新增 `workspace` 与 `handoff_logs`
+
 ### 前端能力
 
 - 新增工作流运行日志面板 `LogViewer`

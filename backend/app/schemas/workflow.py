@@ -48,6 +48,28 @@ class WorkflowExecutionLogSchema(BaseModel):
     role: str
     summary: str
     status: str
+    artifacts: list[str] = []
+
+
+class WorkflowHandoffSchema(BaseModel):
+    """工作流交接记录模型，描述节点之间的共享工作区交付信息"""
+
+    from_agent: str
+    to_agent: str
+    summary: str
+    artifacts: list[str]
+    created_at: str
+
+
+class WorkflowWorkspaceStateSchema(BaseModel):
+    """工作流共享工作区状态模型，描述当前目录、进度和产出物快照"""
+
+    workspace_path: str
+    status: str
+    progress: int
+    active_node_id: str | None
+    artifacts: list[str]
+    updated_at: str
 
 
 class WorkflowPreviewResponseSchema(BaseModel):
@@ -60,5 +82,7 @@ class WorkflowPreviewResponseSchema(BaseModel):
     requirement: RequirementSummarySchema
     dag: WorkflowDagSchema
     execution_logs: list[WorkflowExecutionLogSchema]
+    workspace: WorkflowWorkspaceStateSchema
+    handoff_logs: list[WorkflowHandoffSchema]
     created_at: datetime
     updated_at: datetime

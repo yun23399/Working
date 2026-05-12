@@ -16,9 +16,12 @@ from app.schemas.workflow import (
     RequirementSummarySchema,
     WorkflowDagSchema,
     WorkflowExecutionLogSchema,
+    WorkflowHandoffSchema,
     WorkflowNodeSchema,
     WorkflowPreviewResponseSchema,
+    WorkflowWorkspaceStateSchema,
 )
+from app.workflow.workspace import WorkflowWorkspace
 
 
 class WorkflowNotFoundError(Exception):
@@ -71,9 +74,24 @@ def create_workflow_preview(
         requirement_json=json.dumps(asdict(requirement), ensure_ascii=False),
         dag_json=json.dumps(asdict(dag), ensure_ascii=False),
         execution_log_json="[]",
+        workspace_state_json="{}",
+        handoff_log_json="[]",
+        workspace_path="",
         progress=0,
         status="draft",
     )
+    db.add(workflow)
+    db.commit()
+    db.refresh(workflow)
+    workspace = WorkflowWorkspace(workflow)
+    workspace_dir = workspace.ensure_workspace()
+    workspace.save_workspace_state(
+        status=workflow.status,
+        progress=workflow.progress,
+        active_node_id=None,
+        artifacts=[],
+    )
+    workflow.workspace_path = str(workspace_dir)
     db.add(workflow)
     db.commit()
     db.refresh(workflow)
@@ -96,6 +114,19 @@ def mark_workflow_running(db: Session, workflow: Workflow) -> Workflow:
     workflow.status = "running"
     workflow.progress = 0
     workflow.execution_log_json = "[]"
+    workflow.handoff_log_json = "[]"
+    db.add(workflow)
+    db.commit()
+    db.refresh(workflow)
+    workspace = WorkflowWorkspace(workflow)
+    workspace.ensure_workspace()
+    workspace.save_workspace_state(
+        status=workflow.status,
+        progress=workflow.progress,
+        active_node_id=None,
+        artifacts=[],
+    )
+    workflow.workspace_path = str(workspace.resolve_workspace_path())
     db.add(workflow)
     db.commit()
     db.refresh(workflow)
@@ -149,10 +180,20 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
     requirement_payload = json.loads(workflow.requirement_json)
     dag_payload = json.loads(workflow.dag_json)
     execution_log_payload = json.loads(workflow.execution_log_json or "[]")
+    handoff_log_payload = json.loads(workflow.handoff_log_json or "[]")
     runtime_status_map = build_node_runtime_status_map(
         workflow,
         dag_payload,
         execution_log_payload,
+    )
+    workspace_manager = WorkflowWorkspace(workflow)
+    workspace_state_payload = (
+        json.loads(workflow.workspace_state_json)
+        if workflow.workspace_state_json and workflow.workspace_state_json != "{}"
+        else workspace_manager.build_default_state()
+    )
+    workspace_path = workflow.workspace_path or str(
+        workspace_manager.resolve_workspace_path()
     )
 
     return WorkflowPreviewResponseSchema(
@@ -174,6 +215,15 @@ def workflow_to_response(workflow: Workflow) -> WorkflowPreviewResponseSchema:
         execution_logs=[
             WorkflowExecutionLogSchema(**item) for item in execution_log_payload
         ],
+        workspace=WorkflowWorkspaceStateSchema(
+            workspace_path=workspace_path,
+            status=workspace_state_payload.get("status", workflow.status),
+            progress=workspace_state_payload.get("progress", workflow.progress),
+            active_node_id=workspace_state_payload.get("active_node_id"),
+            artifacts=workspace_state_payload.get("artifacts", []),
+            updated_at=workspace_state_payload.get("updated_at", ""),
+        ),
+        handoff_logs=[WorkflowHandoffSchema(**item) for item in handoff_log_payload],
         created_at=workflow.created_at,
         updated_at=workflow.updated_at,
     )

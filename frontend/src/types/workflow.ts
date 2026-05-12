@@ -36,6 +36,26 @@ export interface WorkflowExecutionLog {
   role: string
   summary: string
   status: string
+  artifacts: string[]
+}
+
+// 工作流交接记录类型
+export interface WorkflowHandoffLog {
+  from_agent: string
+  to_agent: string
+  summary: string
+  artifacts: string[]
+  created_at: string
+}
+
+// 工作流共享工作区状态类型
+export interface WorkflowWorkspaceState {
+  workspace_path: string
+  status: string
+  progress: number
+  active_node_id: string | null
+  artifacts: string[]
+  updated_at: string
 }
 
 // 工作流预览响应类型
@@ -47,6 +67,8 @@ export interface WorkflowPreview {
   requirement: RequirementSummary
   dag: WorkflowDag
   execution_logs: WorkflowExecutionLog[]
+  workspace: WorkflowWorkspaceState
+  handoff_logs: WorkflowHandoffLog[]
   created_at: string
   updated_at: string
 }

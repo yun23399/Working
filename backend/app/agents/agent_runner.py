@@ -42,7 +42,8 @@ class GenericTaskAgent(BaseAgent):
                     f"工作流节点：{task.node_id}\n"
                     f"模板编号：{self.template.template_id}\n"
                     f"任务描述：{task.task}\n"
-                    f"上下文：{task.context}"
+                    f"上下文：{task.context}\n"
+                    f"共享工作区：{task.workspace_path}"
                 ),
             ),
         ]
@@ -55,4 +56,8 @@ class GenericTaskAgent(BaseAgent):
             parts.append(token)
 
         content = "".join(parts).strip()
-        return AgentResult(summary=content, token_count=max(len(parts), 1))
+        return AgentResult(
+            summary=content,
+            token_count=max(len(parts), 1),
+            artifacts=[],
+        )

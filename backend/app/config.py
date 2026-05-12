@@ -6,6 +6,7 @@ from secrets import token_urlsafe
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+ROOT_DIR = ROOT_ENV_FILE.parent
 
 
 class Settings(BaseSettings):
@@ -37,6 +38,15 @@ class Settings(BaseSettings):
     sandbox_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=ROOT_ENV_FILE, extra="ignore")
+
+    @property
+    def workspace_dir_path(self) -> Path:
+        """返回基于仓库根目录解析后的工作区路径"""
+
+        workspace_path = Path(self.workspace_dir)
+        if workspace_path.is_absolute():
+            return workspace_path
+        return (ROOT_DIR / workspace_path).resolve()
 
     @property
     def cors_allow_origins_list(self) -> list[str]:

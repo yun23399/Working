@@ -297,6 +297,15 @@ Authorization: Bearer <access_token>
       ]
     },
     "execution_logs": [],
+    "workspace": {
+      "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_11\\workflow_4",
+      "status": "draft",
+      "progress": 0,
+      "active_node_id": null,
+      "artifacts": [],
+      "updated_at": "2026-05-13T02:10:00+00:00"
+    },
+    "handoff_logs": [],
     "created_at": "2026-05-12T20:04:37Z",
     "updated_at": "2026-05-12T20:04:37Z"
   }
@@ -380,6 +389,15 @@ Authorization: Bearer <access_token>
     ]
   },
   "execution_logs": [],
+  "workspace": {
+    "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_11\\workflow_3",
+    "status": "draft",
+    "progress": 0,
+    "active_node_id": null,
+    "artifacts": [],
+    "updated_at": "2026-05-13T02:10:00+00:00"
+  },
+  "handoff_logs": [],
   "created_at": "2026-05-12T20:04:37Z",
   "updated_at": "2026-05-12T20:04:37Z"
 }
@@ -391,6 +409,7 @@ Authorization: Bearer <access_token>
 - 当 `force_replan=true` 时，会基于当前对话历史重新创建一条新的预览记录
 - 当前阶段会返回 `progress`、`execution_logs` 和节点 `runtime_status`
 - 节点同时返回 `template_id`，用于标识当前角色使用的预置模板
+- 当前阶段会同时返回共享工作区 `workspace` 状态和节点交接记录 `handoff_logs`
 - 预览阶段默认所有节点为 `waiting`
 
 错误码：
@@ -439,6 +458,15 @@ Authorization: Bearer <access_token>
     ]
   },
   "execution_logs": [],
+  "workspace": {
+    "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_11\\workflow_3",
+    "status": "confirmed",
+    "progress": 0,
+    "active_node_id": null,
+    "artifacts": [],
+    "updated_at": "2026-05-13T02:10:05+00:00"
+  },
+  "handoff_logs": [],
   "created_at": "2026-05-12T20:04:37Z",
   "updated_at": "2026-05-12T20:04:40Z"
 }
@@ -492,6 +520,15 @@ Authorization: Bearer <access_token>
     ]
   },
   "execution_logs": [],
+  "workspace": {
+    "workspace_path": "D:\\AI\\0000001-1\\workspace\\projects\\conversation_16\\workflow_7",
+    "status": "running",
+    "progress": 0,
+    "active_node_id": null,
+    "artifacts": [],
+    "updated_at": "2026-05-13T02:11:00+00:00"
+  },
+  "handoff_logs": [],
   "created_at": "2026-05-12T23:13:39Z",
   "updated_at": "2026-05-12T23:13:39Z"
 }
@@ -504,6 +541,8 @@ Authorization: Bearer <access_token>
 - 前端在节点完成、失败和终态时会自动回拉工作流与消息历史，补齐 `execution_logs` 与节点摘要消息
 - 当前节点会按 `template_id` 绑定预置角色模板，执行提示词和默认工具由模板提供
 - 每个节点完成后会向当前对话追加一条角色摘要消息
+- 每条工作流会在仓库根目录 `workspace/projects/conversation_<id>/workflow_<id>/` 创建共享工作区
+- 节点间交接会写入 `handoff_logs` 与 `context/handoff_log.json`
 - 执行完成后，`status` 会更新为 `completed`，并回写 `progress` 与 `execution_logs`
 
 错误码：

@@ -13,6 +13,7 @@ from app.models.conversation import Conversation
 from app.models.workflow import Workflow
 from app.services.conversation_service import save_agent_message
 from app.workflow.agent_spawner import AgentSpawner
+from app.workflow.workspace import WorkflowWorkspace
 
 
 class WorkflowExecutionError(Exception):
@@ -65,6 +66,7 @@ class DagOrchestrator:
         workflow: Workflow,
         conversation: Conversation,
         execution_logs: list[dict[str, Any]],
+        workspace_snapshot: str,
     ) -> str:
         """为节点执行整理最小上下文，包含需求、会话标题和前序摘要"""
 
@@ -82,7 +84,8 @@ class DagOrchestrator:
             f"当前对话标题：{conversation.title}\n"
             f"需求目标：{requirement_payload['goal']}\n"
             f"约束：{'；'.join(requirement_payload['constraints'])}\n"
-            f"最近交接：{handoff_text}"
+            f"最近交接：{handoff_text}\n"
+            f"{workspace_snapshot}"
         )
 
     async def push_workflow_update(
@@ -135,10 +138,18 @@ class DagOrchestrator:
         dag = self.deserialize_dag(workflow)
         ordered_nodes = self.sort_nodes(dag)
         execution_logs: list[dict[str, Any]] = []
+        workspace = WorkflowWorkspace(workflow)
+        workspace_dir = workspace.ensure_workspace()
 
         workflow.status = "running"
         workflow.progress = 0
         workflow.execution_log_json = json.dumps(execution_logs, ensure_ascii=False)
+        workspace.save_workspace_state(
+            status="running",
+            progress=0,
+            active_node_id=None,
+            artifacts=[],
+        )
         db.add(workflow)
         db.commit()
         db.refresh(workflow)
@@ -159,6 +170,13 @@ class DagOrchestrator:
                 "running",
                 progress_before / 100,
             )
+            state = workspace.load_workspace_state()
+            workspace.save_workspace_state(
+                status=workflow.status,
+                progress=progress_before,
+                active_node_id=node.id,
+                artifacts=state.get("artifacts", []),
+            )
             await self.push_log(
                 workflow,
                 "INFO",
@@ -173,7 +191,13 @@ class DagOrchestrator:
                 node_id=node.id,
                 role=node.role,
                 task=node.task,
-                context=self.build_node_context(workflow, conversation, execution_logs),
+                context=self.build_node_context(
+                    workflow,
+                    conversation,
+                    execution_logs,
+                    workspace.get_context_snapshot(),
+                ),
+                workspace_path=str(workspace_dir),
             )
 
             try:
@@ -186,6 +210,13 @@ class DagOrchestrator:
                     exc,
                 )
                 workflow.status = "failed"
+                failed_state = workspace.load_workspace_state()
+                workspace.save_workspace_state(
+                    status="failed",
+                    progress=workflow.progress,
+                    active_node_id=node.id,
+                    artifacts=failed_state.get("artifacts", []),
+                )
                 db.add(workflow)
                 db.commit()
                 db.refresh(workflow)
@@ -208,10 +239,25 @@ class DagOrchestrator:
                 "role": node.role,
                 "summary": result.summary,
                 "status": "done",
+                "artifacts": result.artifacts,
             }
             execution_logs.append(execution_log)
             workflow.execution_log_json = json.dumps(execution_logs, ensure_ascii=False)
             workflow.progress = int((index / total_nodes) * 100)
+            current_state = workspace.load_workspace_state()
+            artifacts = [*current_state.get("artifacts", []), *result.artifacts]
+            workspace.append_handoff(
+                from_agent=node.id,
+                to_agent=ordered_nodes[index].id if index < total_nodes else "workflow",
+                summary=result.summary,
+                artifacts=result.artifacts,
+            )
+            workspace.save_workspace_state(
+                status=workflow.status,
+                progress=workflow.progress,
+                active_node_id=None,
+                artifacts=artifacts,
+            )
             db.add(workflow)
             db.commit()
             db.refresh(workflow)
@@ -238,6 +284,13 @@ class DagOrchestrator:
 
         workflow.status = "completed"
         workflow.progress = 100
+        final_state = workspace.load_workspace_state()
+        workspace.save_workspace_state(
+            status="completed",
+            progress=100,
+            active_node_id=None,
+            artifacts=final_state.get("artifacts", []),
+        )
         db.add(workflow)
         db.commit()
         db.refresh(workflow)

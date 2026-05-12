@@ -22,6 +22,7 @@
 14. 工作流预览生成、重新规划与确认链路可用
 15. 最小工作流执行链路可用
 16. 工作流实时日志面板可用
+17. 共享工作区链路可用
 
 ## 建议命令
 
@@ -140,6 +141,16 @@ python -m playwright install chromium
 - 聊天窗口日志区仅保留 `system` 与 `manager` 相关日志
 - 再次执行同一工作流前，旧的运行时日志会被清空
 - 工作流执行完成后，日志面板条数与运行期事件一致
+
+### 用例 10：阶段二共享工作区链路
+
+验证结果：
+
+- `python -m alembic upgrade head` 可正常升级共享工作区相关字段
+- 工作流执行后会在仓库根目录生成 `workspace/projects/conversation_<id>/workflow_<id>/`
+- `context/workspace_state.json` 可记录当前状态、进度、活跃节点与产出物列表
+- `context/handoff_log.json` 可记录节点之间的交接摘要
+- `GET /api/workflows/{conversation_id}` 返回的 `workspace` 与 `handoff_logs` 字段可反映当前工作区状态
 
 ## 本地验证注意事项
 

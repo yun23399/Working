@@ -13,6 +13,7 @@ class AgentTask:
     role: str
     task: str
     context: str
+    workspace_path: str
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,7 @@ class AgentResult:
 
     summary: str
     token_count: int
+    artifacts: list[str]
 
 
 class BaseAgent:

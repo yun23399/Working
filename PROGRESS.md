@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #15）
+> 更新者：Codex（会话 #16）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段二：工作流引擎（已完成最小工作流预览、执行刷新、预置角色模板与日志面板链路）**
+**⏳ 阶段二：工作流引擎（已完成最小工作流预览、执行刷新、预置角色模板、日志面板与共享工作区链路）**
 
 ---
 
@@ -94,7 +94,7 @@
 - [x] DAG 编排器（dag_orchestrator.py）
 - [x] Agent 生成器（agent_spawner.py）
 - [x] 预置角色模板（前端/后端/测试/PM/设计师）
-- [ ] 共享工作区（workspace.py）
+- [x] 共享工作区（workspace.py）
 - [ ] 断点控制（checkpoint.py）
 - [ ] 错误处理与层级上报（error_handler.py）
 - [x] 工作流日志实时展示（LogViewer.tsx）
@@ -151,6 +151,7 @@
 - ✅ 阶段二执行结果前端刷新链路 — 2026-05-12 | 节点完成后自动回拉工作流与消息历史，执行日志和节点摘要可在前端补齐
 - ✅ 阶段二预置角色模板链路 — 2026-05-12 | PM/前端/后端/测试/设计师模板已接入预览规划、执行提示词与前端展示
 - ✅ 阶段二工作流日志面板链路 — 2026-05-13 | 工作流编排日志已从聊天日志拆分为独立面板，并随 WebSocket 实时回显
+- ✅ 阶段二共享工作区链路 — 2026-05-13 | 工作流已具备根目录共享工作区、状态快照与节点交接记录能力
 
 ---
 
@@ -430,6 +431,23 @@
   1. `frontend`: `npm run lint`、`npm run build` 通过
   2. API/运行态实测通过：工作流执行完成后 `execution_logs_count=5`
   3. WebSocket 日志分流实测通过：`orchestrator` 与 `node_*` 日志进入 `LogViewer`，聊天日志区不再混入工作流编排日志
+
+### 2026-05-13 会话 #16
+- 执行内容：完成阶段二共享工作区链路
+- 新增后端文件：
+  1. `backend/app/workflow/workspace.py`
+  2. `backend/alembic/versions/20260513_000005_add_workflow_workspace_state.py`
+- 关键改造：
+  1. `workflow.py` 新增 `workspace_path`、`workspace_state_json`、`handoff_log_json` 字段
+  2. `workflow_service.py` 在预览创建与执行启动时初始化共享工作区，并将工作区状态纳入响应
+  3. `dag_orchestrator.py` 在节点执行前后回写工作区状态、交接记录与执行上下文
+  4. `base_agent.py`、`agent_runner.py` 将共享工作区路径注入节点执行上下文
+  5. `workflow` API 响应新增 `workspace` 和 `handoff_logs`
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .`、`python -m alembic upgrade head` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. API 实测通过：工作流执行完成后返回根目录共享工作区路径 `workspace/projects/conversation_23/workflow_19`
+  4. API 实测通过：`workspace_state.json` 与 `handoff_log.json` 已落盘，响应中可返回 `workspace` 与 `handoff_logs`
 
 ---
 
