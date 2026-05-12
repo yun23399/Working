@@ -1,0 +1,31 @@
+"""工作流模型定义，负责保存对话生成的 DAG 预览结果"""
+
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database import Base
+
+
+class Workflow(Base):
+    """工作流数据模型，记录结构化需求、DAG 和确认状态"""
+
+    __tablename__ = "workflows"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id"), nullable=False, index=True
+    )
+    requirement_json: Mapped[str] = mapped_column(Text, nullable=False)
+    dag_json: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

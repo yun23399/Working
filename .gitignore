@@ -16,6 +16,7 @@ logs/
 workspace/
 data/
 *.zip
+*.log
 
 # OS / Editor
 .DS_Store

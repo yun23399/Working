@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**✅ 阶段一：基础骨架 MVP（已完成，下一步进入阶段二工作流引擎）**
+**⏳ 阶段二：工作流引擎（已完成最小工作流预览确认链路，完整执行引擎继续推进）**
 
 ---
 
@@ -17,7 +17,7 @@
 | 阶段 | 状态 | 说明 |
 |------|------|------|
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
-| 阶段二：工作流引擎 | ⏳ 待开始 | 依赖阶段一普通对话稳定 |
+| 阶段二：工作流引擎 | ⏳ 进行中 | 已完成最小工作流预览、重新规划与确认链路 |
 | 阶段三：工具集接入 | ⏳ 待开始 | 依赖阶段二完成 |
 | 阶段四：完善体验 | ⏳ 待开始 | 依赖阶段三完成 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
@@ -85,11 +85,12 @@
 
 ---
 
-## 阶段二：任务清单（待开始）
+## 阶段二：任务清单（进行中）
 
-- [ ] 需求提取器（requirement_extractor.py）
-- [ ] 工作流规划器（workflow_planner.py）
-- [ ] 工作流预览确认界面（WorkflowConfirm.tsx）
+- [x] 需求提取器（requirement_extractor.py）
+- [x] 工作流规划器（workflow_planner.py）
+- [x] 工作流预览 API 与持久化（workflow.py / workflow_service.py / workflows.py）
+- [x] 工作流预览确认界面（WorkflowConfirm.tsx）
 - [ ] DAG 编排器（dag_orchestrator.py）
 - [ ] Agent 生成器（agent_spawner.py）
 - [ ] 预置角色模板（前端/后端/测试/PM/设计师）
@@ -145,6 +146,7 @@
 - ✅ 阶段一 Step 5 LLM 适配层 — 2026-05-12 | 统一 LLM 配置、流式适配与 Ollama 原生流式兼容路径实测通过
 - ✅ 阶段一 Step 6 Manager 基础对话 — 2026-05-12 | Manager 真实普通对话、消息持久化与 WebSocket 事件链实测通过
 - ✅ 阶段一 Step 7 最小项目/历史视图收尾 — 2026-05-12 | 项目分组、本地历史映射、项目页切换、环境统一与浏览器回归通过
+- ✅ 阶段二最小工作流预览链路 — 2026-05-12 | 需求提取、DAG 预览、重新规划、确认状态与聊天页预览卡片实测通过
 
 ---
 
@@ -335,6 +337,33 @@
   2. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
   3. 浏览器实测通过：`注册 -> 进入聊天页 -> 切换空项目 -> 新建对话 -> 发送消息 -> 收到流式回复 -> 切回其它项目仅显示各自历史 -> 打开项目页并返回`
   4. 当前联调已稳定在 `http://127.0.0.1:8000` + `http://127.0.0.1:5173`
+
+### 2026-05-12 会话 #11
+- 执行内容：完成阶段二最小工作流预览确认链路
+- 新增后端文件：
+  1. `backend/app/models/workflow.py`
+  2. `backend/app/schemas/workflow.py`
+  3. `backend/app/core/manager/requirement_extractor.py`
+  4. `backend/app/core/manager/workflow_planner.py`
+  5. `backend/app/services/workflow_service.py`
+  6. `backend/app/api/workflows.py`
+  7. `backend/alembic/versions/20260512_000003_add_workflows_table.py`
+- 新增前端文件：
+  1. `frontend/src/types/workflow.ts`
+  2. `frontend/src/api/workflows.ts`
+  3. `frontend/src/stores/workflowStore.ts`
+  4. `frontend/src/components/workflow/WorkflowConfirm.tsx`
+- 关键改造：
+  1. 聊天页新增工作流预览卡片，展示需求摘要、节点拆分和状态
+  2. 前端支持生成预览、重新规划和确认工作流
+  3. 后端新增工作流预览查询、生成与确认接口
+  4. 新增 `workflows` 表保存需求摘要、DAG 预览与确认状态
+  5. README、API、产品流程、前端规格、页面结构、测试文档与 CHANGELOG 已同步到当前实现
+- 验证结果：
+  1. `frontend`: `npm run lint`、`npm run build` 通过
+  2. `backend`: `python -m ruff check .`、`python -m black --check .`、`alembic upgrade head` 通过
+  3. 实测通过：`注册 -> 登录 -> 创建对话 -> 发送需求 -> 生成预览 -> 确认预览 -> 强制重新规划`
+  4. 当前联调可访问：`http://127.0.0.1:8000` + `http://127.0.0.1:5173`
 
 ---
 

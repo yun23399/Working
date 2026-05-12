@@ -38,6 +38,7 @@
 - 自动建立 WebSocket 连接
 - 支持发送消息和接收流式回复
 - 支持按最小项目分组切换历史对话
+- 支持生成、重新规划和确认工作流预览
 - 支持退出登录
 
 状态定义：
@@ -53,12 +54,21 @@
 - `isStreaming`
 - `socketStatus`
 - `errorMessage`
+- `workflowsByConversation`
+- `loadingConversationId`
+- `generatingConversationId`
+- `confirmingWorkflowId`
+- `workflowErrorMessage`
 
 交互说明：
 
 - 项目切换：仅展示当前项目下的历史对话
 - 新建对话按钮：在当前项目下创建新对话并切换
 - 历史对话项：加载该对话的历史消息
+- 工作流预览卡片：展示结构化需求摘要、节点列表和预览状态
+- 生成预览按钮：基于当前对话历史请求后端生成预览
+- 重新规划按钮：基于当前对话历史重新创建预览版本
+- 确认工作流按钮：将当前预览标记为已确认
 - 发送按钮：提交当前输入内容
 - WebSocket 断线：自动重连最多 3 次
 
@@ -198,7 +208,33 @@ interface ChatWindowProps {
 }
 ```
 
-### 2.5 `MessageBubble`
+### 2.5 `WorkflowConfirm`
+
+功能说明：
+
+- 展示当前对话的最新工作流预览
+- 展示需求摘要、约束、输出类型和节点拆分结果
+- 支持生成预览、重新规划和确认预览
+- 展示工作流相关错误与加载状态
+
+Props：
+
+```ts
+interface WorkflowConfirmProps {
+  workflow: WorkflowPreview | null
+  hasConversation: boolean
+  canGenerate: boolean
+  errorMessage: string | null
+  isLoading: boolean
+  isGenerating: boolean
+  isConfirming: boolean
+  onGenerate: () => void
+  onReplan: () => void
+  onConfirm: () => void
+}
+```
+
+### 2.6 `MessageBubble`
 
 功能说明：
 
@@ -214,7 +250,7 @@ interface MessageBubbleProps {
 }
 ```
 
-### 2.6 `StreamingText`
+### 2.7 `StreamingText`
 
 功能说明：
 
@@ -263,6 +299,15 @@ interface StreamingTextProps {
 - 未归属的对话会自动归入当前激活项目
 - 后续阶段会接入真实项目实体
 
+### 3.4 `workflowStore`
+
+负责：
+
+- 按对话缓存工作流预览列表
+- 维护预览加载、生成和确认中的状态
+- 保存工作流相关错误提示
+- 为聊天页提供当前对话的最新预览
+
 ## 4. Hook 规范
 
 ### `useWebSocket`
@@ -308,6 +353,14 @@ useWebSocket(conversationId: number | null, token: string | null)
 - `fetchConversationMessages`
 - `sendChatMessage`
 
+### `workflows.ts`
+
+负责：
+
+- `fetchConversationWorkflows`
+- `createWorkflowPreview`
+- `confirmWorkflowPreview`
+
 ## 6. 当前交互闭环
 
 当前已经可以跑通：
@@ -320,7 +373,9 @@ useWebSocket(conversationId: number | null, token: string | null)
 6. 建立 WebSocket
 7. 发送消息
 8. 接收流式回复
-9. 刷新页面后恢复登录态和项目映射
+9. 基于当前对话生成工作流预览
+10. 确认或重新规划工作流预览
+11. 刷新页面后恢复登录态和项目映射
 
 ## 7. 规划中的可复用组件
 
@@ -349,6 +404,6 @@ useWebSocket(conversationId: number | null, token: string | null)
 
 1. 接入真实 LLM 流式输出后的消息状态适配
 2. 项目实体持久化与后端项目接口
-3. 工作流确认卡片与执行状态面板
+3. 工作流执行状态面板与日志流
 4. 代码/图片/文档预览组件
 5. 暗色主题切换

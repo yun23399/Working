@@ -1,0 +1,281 @@
+import {
+  Check,
+  FileText,
+  GitBranch,
+  LoaderCircle,
+  RefreshCw,
+  Sparkles,
+} from 'lucide-react'
+import type { WorkflowPreview } from '../../types/workflow'
+
+interface WorkflowConfirmProps {
+  workflow: WorkflowPreview | null
+  hasConversation: boolean
+  canGenerate: boolean
+  errorMessage: string | null
+  isLoading: boolean
+  isGenerating: boolean
+  isConfirming: boolean
+  onGenerate: () => void
+  onReplan: () => void
+  onConfirm: () => void
+}
+
+const outputTypeLabelMap: Record<string, string> = {
+  code: '代码',
+  document: '文档',
+  image: '图像',
+  data: '数据',
+}
+
+// 格式化工作流时间，便于在卡片中展示最近更新时间
+function formatWorkflowTime(value: string): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value))
+}
+
+// 将输出物类型转换为更友好的中文标签
+function resolveOutputTypeLabel(outputType: string): string {
+  return outputTypeLabelMap[outputType] ?? outputType
+}
+
+// 根据工作流状态返回对应的界面提示
+function resolveStatusMeta(status: string): {
+  label: string
+  className: string
+} {
+  if (status === 'confirmed') {
+    return {
+      label: '已确认',
+      className: 'bg-[#e8f5ee] text-[#1d6b49]',
+    }
+  }
+
+  return {
+    label: '待确认',
+    className: 'bg-[#eff2fb] text-[#4b5d99]',
+  }
+}
+
+// 工作流预览确认卡片，只负责展示结构化结果和操作入口
+export function WorkflowConfirm({
+  workflow,
+  hasConversation,
+  canGenerate,
+  errorMessage,
+  isLoading,
+  isGenerating,
+  isConfirming,
+  onGenerate,
+  onReplan,
+  onConfirm,
+}: WorkflowConfirmProps) {
+  const statusMeta = workflow ? resolveStatusMeta(workflow.status) : null
+  const emptyStateDescription = !hasConversation
+    ? '先选择或创建一条对话，再基于当前上下文生成工作流预览。'
+    : canGenerate
+      ? '当前对话已经具备基础需求内容，可以先生成工作流预览，再决定是否进入后续执行。'
+      : '先在当前对话里发送至少一条用户需求，再生成更可靠的工作流预览。'
+
+  return (
+    <section className="shrink-0 overflow-hidden rounded-[24px] border border-line bg-[linear-gradient(180deg,rgba(255,255,255,0.95)_0%,rgba(247,243,235,0.96)_100%)] shadow-sm">
+      <div className="border-b border-line/80 px-6 py-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#ebe7db] px-3 py-1 text-xs text-ink-soft">
+              <GitBranch className="h-3.5 w-3.5" />
+              阶段二 · 工作流预览
+            </div>
+            <h2 className="mt-3 text-xl font-semibold text-ink">先确认执行链路，再进入后续编排</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
+              当前版本先提供需求提取、节点拆分和确认入口。真实 DAG 执行、断点与多角色产出将在后续步骤补齐。
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {workflow && statusMeta ? (
+              <span className={`rounded-full px-3 py-1 text-xs ${statusMeta.className}`}>
+                {statusMeta.label}
+              </span>
+            ) : null}
+            {!workflow ? (
+              <button
+                type="button"
+                onClick={onGenerate}
+                disabled={!canGenerate || isGenerating}
+                className="inline-flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isGenerating ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                生成预览
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onReplan}
+                  disabled={isGenerating}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white/80 px-4 py-3 text-sm text-ink transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isGenerating ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  重新规划
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirm}
+                  disabled={workflow.status === 'confirmed' || isConfirming}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isConfirming ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  {workflow.status === 'confirmed' ? '已确认' : '确认工作流'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {errorMessage ? (
+        <div className="mx-6 mt-4 rounded-[18px] border border-[#e3c2bf] bg-[#fff5f4] px-4 py-3 text-sm text-[#9b4b46]">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      {!workflow ? (
+        <div className="grid gap-4 px-6 py-5 md:grid-cols-[1.3fr_0.7fr]">
+          <div className="rounded-[20px] border border-dashed border-line bg-white/70 px-5 py-5">
+            <div className="text-sm font-medium text-ink">还没有生成工作流预览</div>
+            <p className="mt-3 text-sm leading-6 text-ink-soft">{emptyStateDescription}</p>
+          </div>
+          <div className="rounded-[20px] border border-line bg-[#faf7f0] px-5 py-5">
+            <div className="text-xs uppercase tracking-[0.22em] text-ink-faint">预览内容</div>
+            <div className="mt-3 space-y-2 text-sm text-ink-soft">
+              <div>1. 提取目标、约束和上下文</div>
+              <div>2. 生成最小角色节点与依赖顺序</div>
+              <div>3. 由你确认后再进入后续执行阶段</div>
+            </div>
+            {isLoading ? (
+              <div className="mt-4 inline-flex items-center gap-2 text-xs text-ink-faint">
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                正在同步当前对话的预览记录...
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 px-6 py-5 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="space-y-4">
+            <div className="rounded-[20px] border border-line bg-white/80 px-5 py-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+                  <FileText className="h-4 w-4" />
+                  结构化需求摘要
+                </div>
+                <div className="text-xs text-ink-faint">
+                  最近更新 {formatWorkflowTime(workflow.updated_at)}
+                </div>
+              </div>
+              <div className="mt-4 text-xs uppercase tracking-[0.18em] text-ink-faint">目标</div>
+              <div className="mt-2 text-sm leading-7 text-ink">{workflow.requirement.goal}</div>
+              <div className="mt-4 text-xs uppercase tracking-[0.18em] text-ink-faint">上下文</div>
+              <div className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink-soft">
+                {workflow.requirement.context || '当前预览尚未提取到更多上下文。'}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {workflow.requirement.output_types.map((outputType) => (
+                  <span
+                    key={outputType}
+                    className="rounded-full bg-[#ece7dc] px-3 py-1 text-xs text-ink-soft"
+                  >
+                    {resolveOutputTypeLabel(outputType)}
+                  </span>
+                ))}
+              </div>
+              <div className="mt-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-ink-faint">约束</div>
+                <div className="mt-2 space-y-2">
+                  {workflow.requirement.constraints.map((constraint) => (
+                    <div
+                      key={constraint}
+                      className="rounded-2xl border border-line bg-[#faf7f0] px-4 py-3 text-sm leading-6 text-ink-soft"
+                    >
+                      {constraint}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[20px] border border-line bg-[#fbf8f2] px-5 py-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium text-ink">节点拆分预览</div>
+                <div className="mt-1 text-xs text-ink-faint">
+                  执行模式：{workflow.dag.execution_mode === 'serial' ? '串行' : workflow.dag.execution_mode}
+                </div>
+              </div>
+              {isLoading ? (
+                <div className="inline-flex items-center gap-2 text-xs text-ink-faint">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  同步中
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-4 space-y-3">
+              {workflow.dag.nodes.map((node, index) => (
+                <div
+                  key={node.id}
+                  className="rounded-[20px] border border-line bg-white/90 px-4 py-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1f1c17] text-xs text-white">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-ink">{node.role}</span>
+                        <span className="rounded-full bg-[#eff2fb] px-2 py-1 text-[11px] text-[#4b5d99]">
+                          {node.id}
+                        </span>
+                        <span className="rounded-full bg-[#ece7dc] px-2 py-1 text-[11px] text-ink-soft">
+                          {node.llm}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm leading-6 text-ink-soft">{node.task}</div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink-faint">
+                        <span className="rounded-full bg-[#f3efe6] px-2.5 py-1">
+                          工具：{node.tools.join(' / ')}
+                        </span>
+                        <span className="rounded-full bg-[#f3efe6] px-2.5 py-1">
+                          重试：{node.max_retries} 次
+                        </span>
+                        <span className="rounded-full bg-[#f3efe6] px-2.5 py-1">
+                          依赖：{node.depends_on.length > 0 ? node.depends_on.join(', ') : '无'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}

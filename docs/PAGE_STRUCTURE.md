@@ -47,14 +47,17 @@
 - 顶部导航：`TopNav`
 - 左侧栏：`Sidebar`
 - 主内容容器：`MainArea`
+- 工作流预览区：`WorkflowConfirm`
 - 聊天窗口：`ChatWindow`
 
 依赖：
 
 - `conversations.ts`
+- `workflows.ts`
 - `authStore.ts`
 - `chatStore.ts`
 - `projectStore.ts`
+- `workflowStore.ts`
 - `useWebSocket.ts`
 
 ### 项目页 `frontend/src/pages/Projects.tsx`
@@ -79,7 +82,8 @@ frontend/src/
 ├── api/
 │   ├── auth.ts
 │   ├── client.ts
-│   └── conversations.ts
+│   ├── conversations.ts
+│   └── workflows.ts
 ├── components/
 │   ├── chat/
 │   │   ├── ChatWindow.tsx
@@ -89,6 +93,8 @@ frontend/src/
 │       ├── MainArea.tsx
 │       ├── Sidebar.tsx
 │       └── TopNav.tsx
+│   └── workflow/
+│       └── WorkflowConfirm.tsx
 ├── hooks/
 │   └── useWebSocket.ts
 ├── pages/
@@ -100,11 +106,13 @@ frontend/src/
 ├── stores/
 │   ├── authStore.ts
 │   ├── chatStore.ts
-│   └── projectStore.ts
+│   ├── projectStore.ts
+│   └── workflowStore.ts
 └── types/
     ├── auth.ts
     ├── chat.ts
-    └── project.ts
+    ├── project.ts
+    └── workflow.ts
 ```
 
 ## 4. 页面功能边界
@@ -125,6 +133,7 @@ frontend/src/
 ### `stores/`
 
 - 负责保存登录态、对话态、流式态和最小项目态
+- 负责保存工作流预览态
 
 ### `hooks/`
 

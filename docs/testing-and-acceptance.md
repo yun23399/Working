@@ -19,6 +19,7 @@
 11. 最小项目分组与历史视图可用
 12. WebSocket 流式消息可用
 13. 浏览器中可完成登录、项目切换与聊天联调
+14. 工作流预览生成、重新规划与确认链路可用
 
 ## 建议命令
 
@@ -105,6 +106,17 @@ python -m playwright install chromium
 - 设置 `LLM_PROVIDER=ollama` 且本地 Ollama 可用时，可正常获得流式回复
 - 设置 `LLM_PROVIDER=openai` 但未配置 `OPENAI_API_KEY` 时，前端应收到明确错误提示
 
+### 用例 7：阶段二工作流预览链路
+
+验证结果：
+
+- `POST /api/workflows/{conversation_id}/preview` 返回 `200`
+- `GET /api/workflows/{conversation_id}` 可返回预览历史
+- `POST /api/workflows/{conversation_id}/{workflow_id}/confirm` 返回 `200`
+- 强制重新规划后会生成新的 `workflow_id`
+- 当前最新预览可在聊天页工作流卡片中显示
+- 当前阶段确认后仅更新状态，不启动真实 DAG 执行
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -133,4 +145,5 @@ httpx.AsyncClient(trust_env=False)
 2. 聊天页是否仍可用
 3. WebSocket 是否仍可连接
 4. Alembic 迁移是否仍可执行
-5. 文档是否仍与实现一致
+5. 工作流预览是否仍可生成与确认
+6. 文档是否仍与实现一致

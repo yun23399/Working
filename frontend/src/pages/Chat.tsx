@@ -8,10 +8,16 @@ import {
   fetchConversations,
   sendChatMessage,
 } from '../api/conversations'
+import {
+  confirmWorkflowPreview,
+  createWorkflowPreview,
+  fetchConversationWorkflows,
+} from '../api/workflows'
 import { ChatWindow } from '../components/chat/ChatWindow'
 import { MainArea } from '../components/layout/MainArea'
 import { Sidebar } from '../components/layout/Sidebar'
 import { TopNav } from '../components/layout/TopNav'
+import { WorkflowConfirm } from '../components/workflow/WorkflowConfirm'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { useAuthStore } from '../stores/authStore'
 import { useChatStore } from '../stores/chatStore'
@@ -21,6 +27,10 @@ import {
   getProjectById,
   useProjectStore,
 } from '../stores/projectStore'
+import {
+  getLatestWorkflowPreview,
+  useWorkflowStore,
+} from '../stores/workflowStore'
 import type { ChatMessage, Conversation, MessageRecord } from '../types/chat'
 
 function toChatMessage(message: MessageRecord): ChatMessage {
@@ -93,6 +103,24 @@ export function Chat() {
   const removeMessage = useChatStore((state) => state.removeMessage)
   const touchConversation = useChatStore((state) => state.touchConversation)
   const socketStatus = useChatStore((state) => state.socketStatus)
+  const workflowsByConversation = useWorkflowStore((state) => state.workflowsByConversation)
+  const workflowErrorMessage = useWorkflowStore((state) => state.errorMessage)
+  const loadingConversationId = useWorkflowStore((state) => state.loadingConversationId)
+  const generatingConversationId = useWorkflowStore((state) => state.generatingConversationId)
+  const confirmingWorkflowId = useWorkflowStore((state) => state.confirmingWorkflowId)
+  const setWorkflowList = useWorkflowStore((state) => state.setWorkflowList)
+  const upsertWorkflow = useWorkflowStore((state) => state.upsertWorkflow)
+  const setWorkflowLoadingConversationId = useWorkflowStore(
+    (state) => state.setLoadingConversationId,
+  )
+  const setWorkflowGeneratingConversationId = useWorkflowStore(
+    (state) => state.setGeneratingConversationId,
+  )
+  const setWorkflowConfirmingWorkflowId = useWorkflowStore(
+    (state) => state.setConfirmingWorkflowId,
+  )
+  const setWorkflowError = useWorkflowStore((state) => state.setError)
+  const clearWorkflowState = useWorkflowStore((state) => state.clearWorkflowState)
   const activeProject = getProjectById(projects, activeProjectId)
   const activeConversation =
     conversations.find((conversation) => conversation.id === activeConversationId) ?? null
@@ -101,6 +129,19 @@ export function Chat() {
     activeProjectId,
     conversations,
   )
+  const activeWorkflowPreview = getLatestWorkflowPreview(
+    workflowsByConversation,
+    activeConversationId,
+  )
+  const hasUserMessages = messages.some((message) => message.role === 'user')
+  const canGenerateWorkflow =
+    activeConversationId !== null && hasUserMessages && !isBootstrapping
+  const isLoadingWorkflow =
+    activeConversationId !== null && loadingConversationId === activeConversationId
+  const isGeneratingWorkflow =
+    activeConversationId !== null && generatingConversationId === activeConversationId
+  const isConfirmingWorkflow =
+    activeWorkflowPreview !== null && confirmingWorkflowId === activeWorkflowPreview.workflow_id
 
   useWebSocket(activeConversationId, token)
 
@@ -113,8 +154,9 @@ export function Chat() {
   const handleUnauthorized = useCallback(() => {
     clearSession()
     clearChatState()
+    clearWorkflowState()
     navigate('/login', { replace: true })
-  }, [clearChatState, clearSession, navigate])
+  }, [clearChatState, clearSession, clearWorkflowState, navigate])
 
   const loadMessages = useCallback(async (nextConversationId: number, authToken: string) => {
     try {
@@ -141,6 +183,8 @@ export function Chat() {
       prependConversation(conversation)
       attachConversationToActiveProject(conversation.id)
       syncProjectConversations([...conversations, conversation])
+      setWorkflowList(conversation.id, [])
+      setWorkflowError(null)
       setError(null)
       return conversation
     } catch (error) {
@@ -161,6 +205,8 @@ export function Chat() {
     prependConversation,
     setCreatingConversation,
     setError,
+    setWorkflowError,
+    setWorkflowList,
     syncProjectConversations,
   ])
 
@@ -264,6 +310,56 @@ export function Chat() {
     setUser,
     syncProjectConversations,
     user,
+    token,
+  ])
+
+  useEffect(() => {
+    if (!token || activeConversationId === null) {
+      setWorkflowLoadingConversationId(null)
+      setWorkflowError(null)
+      return
+    }
+
+    let isCurrent = true
+
+    const loadWorkflowPreview = async () => {
+      setWorkflowLoadingConversationId(activeConversationId)
+      setWorkflowError(null)
+
+      try {
+        const workflows = await fetchConversationWorkflows(token, activeConversationId)
+        if (!isCurrent) {
+          return
+        }
+
+        setWorkflowList(activeConversationId, workflows)
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 401) {
+          handleUnauthorized()
+          return
+        }
+
+        if (isCurrent) {
+          setWorkflowError(resolveChatError(error))
+        }
+      } finally {
+        if (isCurrent) {
+          setWorkflowLoadingConversationId(null)
+        }
+      }
+    }
+
+    void loadWorkflowPreview()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [
+    activeConversationId,
+    handleUnauthorized,
+    setWorkflowError,
+    setWorkflowList,
+    setWorkflowLoadingConversationId,
     token,
   ])
 
@@ -375,9 +471,79 @@ export function Chat() {
     }
   }
 
+  const handleGenerateWorkflowPreview = async (forceReplan: boolean) => {
+    if (!token) {
+      handleUnauthorized()
+      return
+    }
+
+    if (activeConversationId === null) {
+      setWorkflowError('请先创建或选择一条对话，再生成工作流预览')
+      return
+    }
+
+    if (!hasUserMessages) {
+      setWorkflowError('请先发送至少一条用户需求，再生成工作流预览')
+      return
+    }
+
+    setWorkflowGeneratingConversationId(activeConversationId)
+    setWorkflowError(null)
+
+    try {
+      const preview = await createWorkflowPreview(token, activeConversationId, {
+        force_replan: forceReplan,
+      })
+      upsertWorkflow(preview)
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setWorkflowError(resolveChatError(error))
+    } finally {
+      setWorkflowGeneratingConversationId(null)
+    }
+  }
+
+  const handleConfirmWorkflowPreview = async () => {
+    if (!token) {
+      handleUnauthorized()
+      return
+    }
+
+    if (activeConversationId === null || !activeWorkflowPreview) {
+      setWorkflowError('当前还没有可确认的工作流预览')
+      return
+    }
+
+    setWorkflowConfirmingWorkflowId(activeWorkflowPreview.workflow_id)
+    setWorkflowError(null)
+
+    try {
+      const confirmedWorkflow = await confirmWorkflowPreview(
+        token,
+        activeConversationId,
+        activeWorkflowPreview.workflow_id,
+      )
+      upsertWorkflow(confirmedWorkflow)
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setWorkflowError(resolveChatError(error))
+    } finally {
+      setWorkflowConfirmingWorkflowId(null)
+    }
+  }
+
   const handleLogout = () => {
     clearSession()
     clearChatState()
+    clearWorkflowState()
     navigate('/login', { replace: true })
   }
 
@@ -419,18 +585,40 @@ export function Chat() {
             activeProject?.summary ?? '当前还没有项目摘要，后续阶段会接入真实项目实体。'
           }
         >
-          <ChatWindow
-            draft={draft}
-            errorMessage={errorMessage}
-            isBootstrapping={isBootstrapping}
-            isSending={isSending}
-            isStreaming={isStreaming}
-            logs={activityLogs}
-            messages={messages}
-            socketStatus={socketStatus}
-            onDraftChange={setDraft}
-            onSend={handleSendMessage}
-          />
+          <div className="flex h-full min-h-0 flex-col gap-4 p-4">
+            <WorkflowConfirm
+              workflow={activeWorkflowPreview}
+              hasConversation={activeConversationId !== null}
+              canGenerate={canGenerateWorkflow}
+              errorMessage={workflowErrorMessage}
+              isLoading={isLoadingWorkflow}
+              isGenerating={isGeneratingWorkflow}
+              isConfirming={isConfirmingWorkflow}
+              onGenerate={() => {
+                void handleGenerateWorkflowPreview(false)
+              }}
+              onReplan={() => {
+                void handleGenerateWorkflowPreview(true)
+              }}
+              onConfirm={() => {
+                void handleConfirmWorkflowPreview()
+              }}
+            />
+            <div className="min-h-0 flex-1 overflow-hidden rounded-[24px] border border-line bg-white/80 shadow-sm">
+              <ChatWindow
+                draft={draft}
+                errorMessage={errorMessage}
+                isBootstrapping={isBootstrapping}
+                isSending={isSending}
+                isStreaming={isStreaming}
+                logs={activityLogs}
+                messages={messages}
+                socketStatus={socketStatus}
+                onDraftChange={setDraft}
+                onSend={handleSendMessage}
+              />
+            </div>
+          </div>
         </MainArea>
       </section>
     </main>

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.auth import router as auth_router
 from app.api.conversations import router as conversations_router
+from app.api.workflows import router as workflows_router
 from app.api.ws import router as ws_router
 from app.config import settings
 from app.utils.logger import configure_logger, get_logger
@@ -24,6 +25,7 @@ app.add_middleware(
 )
 app.include_router(auth_router)
 app.include_router(conversations_router)
+app.include_router(workflows_router)
 app.include_router(ws_router)
 
 

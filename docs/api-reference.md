@@ -257,11 +257,179 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 4. 当前未实现但已规划的接口
+## 4. 工作流预览接口
+
+### GET /api/workflows/{conversation_id}
+
+用途：获取指定对话下的工作流预览列表，按最近创建时间倒序返回。
+
+成功响应：
+
+```json
+[
+  {
+    "workflow_id": 4,
+    "conversation_id": 11,
+    "status": "draft",
+    "requirement": {
+      "goal": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。",
+      "constraints": [
+        "需围绕当前对话《阶段二预览验证 200436》推进"
+      ],
+      "output_types": ["code", "document"],
+      "context": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。"
+    },
+    "dag": {
+      "execution_mode": "serial",
+      "nodes": [
+        {
+          "id": "node_1",
+          "role": "需求分析师",
+          "task": "梳理目标、约束与交付范围，输出执行摘要。",
+          "tools": ["file_tool"],
+          "llm": "ollama/qwen2.5-coder:3b",
+          "max_retries": 2,
+          "depends_on": []
+        }
+      ]
+    },
+    "created_at": "2026-05-12T20:04:37Z",
+    "updated_at": "2026-05-12T20:04:37Z"
+  }
+]
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `LIST_WORKFLOWS_FAILED`
+
+### POST /api/workflows/{conversation_id}/preview
+
+用途：为指定对话生成工作流预览，或在 `force_replan=true` 时重新规划。
+
+请求体：
+
+```json
+{
+  "force_replan": false
+}
+```
+
+成功响应：
+
+```json
+{
+  "workflow_id": 3,
+  "conversation_id": 11,
+  "status": "draft",
+  "requirement": {
+    "goal": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。",
+    "constraints": [
+      "需围绕当前对话《阶段二预览验证 200436》推进",
+      "交付内容需兼顾文档表达清晰度",
+      "需要体现前端界面或交互实现要求"
+    ],
+    "output_types": ["code", "document"],
+    "context": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。"
+  },
+  "dag": {
+    "execution_mode": "serial",
+    "nodes": [
+      {
+        "id": "node_1",
+        "role": "需求分析师",
+        "task": "梳理目标、约束与交付范围，输出执行摘要。",
+        "tools": ["file_tool"],
+        "llm": "ollama/qwen2.5-coder:3b",
+        "max_retries": 2,
+        "depends_on": []
+      },
+      {
+        "id": "node_2",
+        "role": "方案规划师",
+        "task": "根据需求摘要生成实施方案、任务拆分和风险提示。",
+        "tools": ["file_tool"],
+        "llm": "ollama/qwen2.5-coder:3b",
+        "max_retries": 2,
+        "depends_on": ["node_1"]
+      },
+      {
+        "id": "node_3",
+        "role": "交付执行者",
+        "task": "根据确认后的方案产出最终交付物草稿，并整理交接说明。",
+        "tools": ["code_executor", "file_tool"],
+        "llm": "ollama/qwen2.5-coder:3b",
+        "max_retries": 3,
+        "depends_on": ["node_2"]
+      }
+    ]
+  },
+  "created_at": "2026-05-12T20:04:37Z",
+  "updated_at": "2026-05-12T20:04:37Z"
+}
+```
+
+说明：
+
+- 当当前对话已有预览且 `force_replan=false` 时，直接返回最新预览
+- 当 `force_replan=true` 时，会基于当前对话历史重新创建一条新的预览记录
+- 当前阶段只做预览与确认，不触发真实 DAG 执行
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `VALIDATION_ERROR`
+- `CREATE_WORKFLOW_PREVIEW_FAILED`
+
+### POST /api/workflows/{conversation_id}/{workflow_id}/confirm
+
+用途：确认指定工作流预览，当前阶段仅更新状态为 `confirmed`。
+
+成功响应：
+
+```json
+{
+  "workflow_id": 3,
+  "conversation_id": 11,
+  "status": "confirmed",
+  "requirement": {
+    "goal": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。",
+    "constraints": [
+      "需围绕当前对话《阶段二预览验证 200436》推进"
+    ],
+    "output_types": ["code", "document"],
+    "context": "请先帮我规划一个支持前端页面、文档输出和流程确认的项目，并生成可确认的工作流预览。"
+  },
+  "dag": {
+    "execution_mode": "serial",
+    "nodes": []
+  },
+  "created_at": "2026-05-12T20:04:37Z",
+  "updated_at": "2026-05-12T20:04:40Z"
+}
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `WORKFLOW_NOT_FOUND`
+- `CONFIRM_WORKFLOW_FAILED`
+
+---
+
+## 5. 当前未实现但已规划的接口
 
 以下接口仍处于规划阶段，暂未在当前仓库中实现：
 
 - `/api/projects`
-- `/api/workflows/{conversation_id}`
-- `/api/workflows/{conversation_id}/confirm`
 - `/api/workflows/{conversation_id}/control`
