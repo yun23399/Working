@@ -129,6 +129,7 @@ python -m playwright install chromium
 - 对话历史会追加 3 条节点执行结果消息
 - WebSocket 已接入 `workflow_update` 事件，前端可消费节点状态
 - 前端在节点完成与终态后可自动补齐 `execution_logs` 和节点摘要消息
+- 包含前端/后端/设计/测试关键词的需求可生成对应角色模板节点
 
 ## 本地验证注意事项
 

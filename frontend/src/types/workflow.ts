@@ -14,6 +14,7 @@ export interface RequirementSummary {
 // 工作流节点类型
 export interface WorkflowNode {
   id: string
+  template_id: string
   role: string
   task: string
   tools: string[]

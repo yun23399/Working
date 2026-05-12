@@ -24,6 +24,7 @@ class WorkflowNodeSchema(BaseModel):
     """工作流节点模型，描述角色、任务和依赖关系"""
 
     id: str
+    template_id: str
     role: str
     task: str
     tools: list[str]

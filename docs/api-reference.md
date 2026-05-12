@@ -285,6 +285,7 @@ Authorization: Bearer <access_token>
       "nodes": [
         {
           "id": "node_1",
+          "template_id": "pm",
           "role": "需求分析师",
           "task": "梳理目标、约束与交付范围，输出执行摘要。",
           "tools": ["file_tool"],
@@ -345,6 +346,7 @@ Authorization: Bearer <access_token>
     "nodes": [
       {
         "id": "node_1",
+        "template_id": "pm",
         "role": "需求分析师",
         "task": "梳理目标、约束与交付范围，输出执行摘要。",
         "tools": ["file_tool"],
@@ -355,6 +357,7 @@ Authorization: Bearer <access_token>
       },
       {
         "id": "node_2",
+        "template_id": "frontend",
         "role": "方案规划师",
         "task": "根据需求摘要生成实施方案、任务拆分和风险提示。",
         "tools": ["file_tool"],
@@ -365,6 +368,7 @@ Authorization: Bearer <access_token>
       },
       {
         "id": "node_3",
+        "template_id": "backend",
         "role": "交付执行者",
         "task": "根据确认后的方案产出最终交付物草稿，并整理交接说明。",
         "tools": ["code_executor", "file_tool"],
@@ -386,6 +390,7 @@ Authorization: Bearer <access_token>
 - 当当前对话已有预览且 `force_replan=false` 时，直接返回最新预览
 - 当 `force_replan=true` 时，会基于当前对话历史重新创建一条新的预览记录
 - 当前阶段会返回 `progress`、`execution_logs` 和节点 `runtime_status`
+- 节点同时返回 `template_id`，用于标识当前角色使用的预置模板
 - 预览阶段默认所有节点为 `waiting`
 
 错误码：
@@ -422,6 +427,7 @@ Authorization: Bearer <access_token>
     "nodes": [
       {
         "id": "node_1",
+        "template_id": "pm",
         "role": "需求分析师",
         "task": "梳理目标、约束与交付范围，输出执行摘要。",
         "tools": ["file_tool"],
@@ -474,6 +480,7 @@ Authorization: Bearer <access_token>
     "nodes": [
       {
         "id": "node_1",
+        "template_id": "pm",
         "role": "需求分析师",
         "task": "梳理目标、约束与交付范围，输出执行摘要。",
         "tools": ["file_tool"],
@@ -495,6 +502,7 @@ Authorization: Bearer <access_token>
 - 当前版本只支持最小串行执行，不支持并发节点和断点恢复
 - 执行过程通过 WebSocket `workflow_update` 和 `log` 事件回推到前端
 - 前端在节点完成、失败和终态时会自动回拉工作流与消息历史，补齐 `execution_logs` 与节点摘要消息
+- 当前节点会按 `template_id` 绑定预置角色模板，执行提示词和默认工具由模板提供
 - 每个节点完成后会向当前对话追加一条角色摘要消息
 - 执行完成后，`status` 会更新为 `completed`，并回写 `progress` 与 `execution_logs`
 

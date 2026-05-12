@@ -14,4 +14,5 @@ class AgentSpawner:
             role=node.role,
             llm_model=node.llm,
             max_retries=node.max_retries,
+            template_id=node.template_id,
         )

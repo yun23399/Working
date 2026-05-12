@@ -31,6 +31,14 @@ const outputTypeLabelMap: Record<string, string> = {
   data: '数据',
 }
 
+const templateLabelMap: Record<string, string> = {
+  pm: 'PM 模板',
+  frontend: '前端模板',
+  backend: '后端模板',
+  qa: '测试模板',
+  designer: '设计模板',
+}
+
 // 格式化工作流时间，便于在卡片中展示最近更新时间
 function formatWorkflowTime(value: string): string {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -44,6 +52,11 @@ function formatWorkflowTime(value: string): string {
 // 将输出物类型转换为更友好的中文标签
 function resolveOutputTypeLabel(outputType: string): string {
   return outputTypeLabelMap[outputType] ?? outputType
+}
+
+// 将模板编号转换为更友好的中文标签
+function resolveTemplateLabel(templateId: string): string {
+  return templateLabelMap[templateId] ?? templateId
 }
 
 // 根据工作流状态返回对应的界面提示
@@ -303,6 +316,9 @@ export function WorkflowConfirm({
                         </span>
                         <span className="rounded-full bg-[#ece7dc] px-2 py-1 text-[11px] text-ink-soft">
                           {node.llm}
+                        </span>
+                        <span className="rounded-full bg-[#eef5ea] px-2 py-1 text-[11px] text-[#42613b]">
+                          {resolveTemplateLabel(node.template_id)}
                         </span>
                         <span className="rounded-full bg-[#f3efe6] px-2 py-1 text-[11px] text-ink-soft">
                           {node.runtime_status ?? 'waiting'}
