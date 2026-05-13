@@ -257,9 +257,78 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 4. 工作流接口
+## 4. 系统运行配置接口
 
-## 4.1 自定义 Agent 角色模板接口
+### GET /api/system-settings/runtime
+
+用途：读取当前系统级工作流并发配置和运行槽位快照。
+
+成功响应：
+
+```json
+{
+  "max_concurrent_workflows": 3,
+  "active_workflow_count": 1,
+  "remaining_slots": 2,
+  "is_limit_reached": false
+}
+```
+
+说明：
+
+- 当前配置来源于仓库根目录 `.env` 的 `MAX_CONCURRENT_WORKFLOWS`
+- 当前实现为单进程内存级并发槽位控制，适用于本地单实例运行
+- `remaining_slots=0` 时，新的工作流执行请求会被拒绝
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `GET_SYSTEM_RUNTIME_SETTINGS_FAILED`
+
+### PUT /api/system-settings/runtime
+
+用途：更新当前系统级工作流并发上限，并让当前后端进程立即生效。
+
+请求体：
+
+```json
+{
+  "max_concurrent_workflows": 2
+}
+```
+
+成功响应：
+
+```json
+{
+  "max_concurrent_workflows": 2,
+  "active_workflow_count": 1,
+  "remaining_slots": 1,
+  "is_limit_reached": false
+}
+```
+
+说明：
+
+- 当前仅允许设置 `1` 到 `10` 之间的整数
+- 更新时只会改写 `.env` 中的 `MAX_CONCURRENT_WORKFLOWS`，不会覆盖其它环境变量
+- 当前进程会在保存后立即重新载入配置
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `VALIDATION_ERROR`
+- `UPDATE_SYSTEM_RUNTIME_SETTINGS_FAILED`
+
+---
+
+## 5. 工作流接口
+
+## 5.1 自定义 Agent 角色模板接口
 
 ### GET /api/agent-role-templates
 
@@ -970,6 +1039,7 @@ path=design_brief.md
 - `CONVERSATION_NOT_FOUND`
 - `WORKFLOW_NOT_FOUND`
 - `INVALID_WORKFLOW_STATUS`
+- `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
 - `EXECUTE_WORKFLOW_FAILED`
 
 ---

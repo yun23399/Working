@@ -77,31 +77,46 @@
 
 - 自定义角色模板管理页已接入
 - 当前支持角色模板创建、编辑、启停、删除、关键词配置与 JSON 导入/导出
-- 后续用于主题、语言与模型并发配置
+- 当前支持系统级工作流并发上限查看与保存
+- 后续用于主题、语言与更多系统配置
 
 ## 3. 组件目录结构
 
 ```text
 frontend/src/
 ├── api/
+│   ├── agentRoleTemplates.ts
 │   ├── auth.ts
 │   ├── client.ts
 │   ├── conversations.ts
+│   ├── systemSettings.ts
+│   ├── workflowArtifacts.ts
 │   └── workflows.ts
 ├── components/
 │   ├── chat/
 │   │   ├── ChatWindow.tsx
 │   │   ├── MessageBubble.tsx
-│   │   └── StreamingText.tsx
-│   └── layout/
-│       ├── MainArea.tsx
-│       ├── Sidebar.tsx
-│       └── TopNav.tsx
-│   └── workflow/
-│       ├── LogViewer.tsx
-│       └── WorkflowConfirm.tsx
+│   │   ├── StreamingText.tsx
+│   │   └── TokenCounter.tsx
+│   ├── layout/
+│   │   ├── MainArea.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── TopNav.tsx
+│   ├── workflow/
+│   │   ├── LogViewer.tsx
+│   │   └── WorkflowConfirm.tsx
+│   └── workspace/
+│       ├── ArtifactPreviewPanel.tsx
+│       ├── CodePreview.tsx
+│       ├── DocumentPreview.tsx
+│       └── ImagePreview.tsx
 ├── hooks/
-│   └── useWebSocket.ts
+│   ├── useWebSocket.ts
+│   └── useWorkflowArtifacts.ts
+├── i18n/
+│   ├── en.json
+│   ├── index.ts
+│   └── zh.json
 ├── pages/
 │   ├── AppRouter.tsx
 │   ├── Chat.tsx
@@ -113,11 +128,19 @@ frontend/src/
 │   ├── chatStore.ts
 │   ├── projectStore.ts
 │   └── workflowStore.ts
-└── types/
-    ├── auth.ts
-    ├── chat.ts
-    ├── project.ts
-    └── workflow.ts
+├── types/
+│   ├── agentRoleTemplate.ts
+│   ├── auth.ts
+│   ├── chat.ts
+│   ├── project.ts
+│   ├── systemSettings.ts
+│   └── workflow.ts
+├── utils/
+│   ├── export.ts
+│   └── workflowArtifacts.ts
+├── App.tsx
+├── main.tsx
+└── styles.css
 ```
 
 ## 4. 页面功能边界

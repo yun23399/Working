@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db
+from app.core.runtime.workflow_concurrency import workflow_concurrency_controller
 from app.database import SessionLocal
 from app.models.conversation import Conversation
 from app.models.user import User
@@ -58,19 +59,22 @@ async def run_workflow_execution_async(workflow_id: int) -> None:
     """后台执行已确认工作流，避免阻塞当前 HTTP 请求"""
 
     orchestrator = DagOrchestrator()
-    with SessionLocal() as db:
-        workflow = db.get(Workflow, workflow_id)
-        if workflow is None:
-            return
+    try:
+        with SessionLocal() as db:
+            workflow = db.get(Workflow, workflow_id)
+            if workflow is None:
+                return
 
-        conversation = db.get(Conversation, workflow.conversation_id)
-        if conversation is None:
-            return
+            conversation = db.get(Conversation, workflow.conversation_id)
+            if conversation is None:
+                return
 
-        try:
-            await orchestrator.execute(db, workflow, conversation)
-        except WorkflowExecutionError:
-            return
+            try:
+                await orchestrator.execute(db, workflow, conversation)
+            except WorkflowExecutionError:
+                return
+    finally:
+        workflow_concurrency_controller.release_slot(workflow_id)
 
 
 @router.get(
@@ -407,8 +411,23 @@ async def execute_workflow_endpoint(
                 },
             )
 
-        running_workflow = mark_workflow_running(db, workflow)
-        asyncio.create_task(run_workflow_execution_async(running_workflow.id))
+        if not workflow_concurrency_controller.reserve_slot(workflow.id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "工作流并发上限已达到",
+                    "code": "WORKFLOW_CONCURRENCY_LIMIT_REACHED",
+                    "detail": "当前正在执行的工作流数量已达到系统上限，请稍后再试",
+                },
+            )
+
+        try:
+            running_workflow = mark_workflow_running(db, workflow)
+            asyncio.create_task(run_workflow_execution_async(running_workflow.id))
+        except Exception:
+            workflow_concurrency_controller.release_slot(workflow.id)
+            raise
+
         return workflow_to_response(running_workflow)
     except ConversationNotFoundError as exc:
         raise HTTPException(

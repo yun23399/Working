@@ -36,6 +36,7 @@
 28. 当前对话内搜索链路可用
 29. 用户自定义 Agent 角色模板链路可用
 30. Agent 配置导入/导出链路可用
+31. 并发工作流上限配置链路可用
 
 ## 建议命令
 
@@ -366,6 +367,21 @@ python -m playwright install chromium
 - 2026-05-13 API 级实测通过：导入覆盖策略会更新同名模板的摘要、工具、启停状态与重试次数
 - 设置页已新增“导出模板”和“导入模板”入口，并可回显逐条导入结果
 
+### 用例 27：阶段四并发工作流上限配置链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- 设置页已新增“工作流并发上限”面板，可展示当前上限、执行中数量、剩余槽位与是否已满
+- `GET /api/system-settings/runtime` 可返回当前运行时并发快照
+- `PUT /api/system-settings/runtime` 可更新 `MAX_CONCURRENT_WORKFLOWS` 并立即返回最新快照
+- `POST /api/workflows/{conversation_id}/{workflow_id}/execute` 已接入并发槽位校验，超限时返回 `409`
+- 超限错误码为 `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
+- 当前并发控制为单进程内存级实现，适用于本地单实例联调
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -409,4 +425,6 @@ httpx.AsyncClient(trust_env=False)
 17. 当前对话内搜索、高亮与跳转是否仍可用
 18. 自定义角色模板的增删改查与重新规划接入是否仍可用
 19. 角色模板导入/导出与导入结果回显是否仍可用
-20. 文档是否仍与实现一致
+20. `GET /api/system-settings/runtime` 与 `PUT /api/system-settings/runtime` 是否仍可用
+21. 工作流执行超限时是否仍返回 `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
+22. 文档是否仍与实现一致

@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #32）
+> 更新者：Codex（会话 #33）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段四：完善体验（已完成系统通知、本地多项目管理、对话内搜索、自定义角色管理与配置导入导出，下一步继续完善日志与并发配置能力）**
+**⏳ 阶段四：完善体验（已完成系统通知、本地多项目管理、对话内搜索、自定义角色管理、配置导入导出与并发上限配置，下一步继续完善日志能力）**
 
 ---
 
@@ -19,7 +19,7 @@
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
 | 阶段二：工作流引擎 | ✅ 已完成 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新、模板、共享工作区、断点、错误恢复与项目级记忆链路 |
 | 阶段三：工具集接入 | ✅ 已完成 | 已完成代码、文件、API、浏览器、图像工具、前端产物预览、导出与 Token 展示链路 |
-| 阶段四：完善体验 | ⏳ 进行中 | 已完成系统通知、本地多项目管理、对话内搜索、自定义角色管理与配置导入导出，后续继续完善日志与并发配置能力 |
+| 阶段四：完善体验 | ⏳ 进行中 | 已完成系统通知、本地多项目管理、对话内搜索、自定义角色管理、配置导入导出与并发上限配置，后续继续完善日志能力 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
 
 ---
@@ -124,7 +124,7 @@
 - [x] 对话内搜索
 - [x] 用户自定义 Agent 角色管理
 - [x] Agent 配置导入/导出
-- [ ] 并发工作流上限配置
+- [x] 并发工作流上限配置
 - [ ] 页面过渡动效优化
 - [ ] 日志面板完善（分级过滤 + 写入文件）
 
@@ -168,6 +168,7 @@
 - ✅ 阶段四对话内搜索链路 — 2026-05-13 | 聊天页已支持当前对话内关键词搜索、匹配高亮与上下跳转定位
 - ✅ 阶段四用户自定义 Agent 角色管理链路 — 2026-05-13 | 已支持用户级角色模板 CRUD、启停控制、关键词触发重规划与节点模板快照执行
 - ✅ 阶段四 Agent 配置导入/导出链路 — 2026-05-13 | 设置页已支持角色模板 JSON 导入/导出、冲突策略选择与导入结果回显
+- ✅ 阶段四并发工作流上限配置链路 — 2026-05-13 | 设置页已支持系统级并发上限查看与保存，后端已在执行入口拦截超限工作流并实时生效
 
 ---
 
@@ -735,6 +736,30 @@
   2. `frontend`: `npm run lint`、`npm run build` 通过
   3. API 级回归通过：`GET /api/agent-role-templates/export` 可返回角色模板 JSON 配置包
   4. API 级回归通过：`POST /api/agent-role-templates/import` 的 `skip / overwrite` 两种策略均按预期工作
+
+### 2026-05-13 会话 #33
+- 执行内容：完成阶段四并发工作流上限配置链路
+- 新增后端文件：
+  1. `backend/app/api/system_settings.py`
+  2. `backend/app/core/runtime/workflow_concurrency.py`
+  3. `backend/app/schemas/system_settings.py`
+  4. `backend/app/services/system_settings_service.py`
+- 新增前端文件：
+  1. `frontend/src/api/systemSettings.ts`
+  2. `frontend/src/types/systemSettings.ts`
+- 关键改造：
+  1. `backend/app/config.py` 新增 `reload_settings()`，支持根目录 `.env` 变更后实时重载配置
+  2. 后端新增系统运行配置接口 `/api/system-settings/runtime`，用于读取与更新 `MAX_CONCURRENT_WORKFLOWS`
+  3. 后端新增进程内并发控制器，在 `/api/workflows/{conversation_id}/{workflow_id}/execute` 启动前执行槽位校验
+  4. 工作流超过系统并发上限时返回 `409`，错误码为 `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
+  5. 设置页修复原有自举错误，并新增“工作流并发上限”面板，支持查看当前上限、执行中数量、剩余槽位与是否已满
+  6. 设置页支持修改系统级并发上限，并在保存后立即刷新本地运行时快照
+  7. README、CHANGELOG、API、产品流程、测试文档、前端规格和页面结构已同步到当前实现
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. 代码级导入验证通过：`workflow_concurrency_controller.build_runtime_snapshot()` 可返回当前并发快照
+  4. 路由级导入验证通过：`/api/system-settings` 已成功注册
 
 ---
 

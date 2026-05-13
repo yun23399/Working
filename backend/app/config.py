@@ -1,5 +1,6 @@
 """应用配置定义，统一从环境变量读取参数"""
 
+import os
 from pathlib import Path
 from secrets import token_urlsafe
 
@@ -76,3 +77,13 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def reload_settings() -> None:
+    """重新从环境变量和根目录 `.env` 载入配置，供设置页实时生效使用"""
+
+    refreshed_settings = Settings()
+    for field_name in Settings.model_fields:
+        setattr(settings, field_name, getattr(refreshed_settings, field_name))
+
+    os.environ["MAX_CONCURRENT_WORKFLOWS"] = str(settings.max_concurrent_workflows)

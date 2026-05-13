@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { fetchSystemRuntimeSettings, updateSystemRuntimeSettings } from '../api/systemSettings'
 import {
   createAgentRoleTemplate,
   deleteAgentRoleTemplate,
@@ -29,6 +30,7 @@ import type {
   AgentRoleTemplateImportBundle,
   AgentRoleTemplateImportResponse,
 } from '../types/agentRoleTemplate'
+import type { SystemRuntimeSettings } from '../types/systemSettings'
 
 const supportedTools = [
   { id: 'file_tool', label: '文件工具' },
@@ -53,7 +55,7 @@ function resolveSettingsError(error: unknown): string {
     return error.message
   }
 
-  return '角色模板操作失败，请稍后重试'
+  return '设置操作失败，请稍后重试'
 }
 
 function parseKeywordInput(value: string): string[] {
@@ -61,6 +63,20 @@ function parseKeywordInput(value: string): string[] {
     .split(/[\n,，]/)
     .map((keyword) => keyword.trim())
     .filter((keyword, index, keywords) => keyword.length > 0 && keywords.indexOf(keyword) === index)
+}
+
+function parseConcurrencyLimitInput(value: string): number | null {
+  const normalizedValue = value.trim()
+  if (!/^\d+$/.test(normalizedValue)) {
+    return null
+  }
+
+  const parsedValue = Number(normalizedValue)
+  if (!Number.isInteger(parsedValue) || parsedValue < 1 || parsedValue > 10) {
+    return null
+  }
+
+  return parsedValue
 }
 
 function formatUpdatedAt(value: string): string {
@@ -89,6 +105,9 @@ export function Settings() {
   const [isDeletingTemplateId, setIsDeletingTemplateId] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [runtimeSettings, setRuntimeSettings] = useState<SystemRuntimeSettings | null>(null)
+  const [concurrencyLimitInput, setConcurrencyLimitInput] = useState('3')
+  const [isSavingConcurrencyLimit, setIsSavingConcurrencyLimit] = useState(false)
   const [importConflictStrategy, setImportConflictStrategy] = useState<'skip' | 'overwrite'>(
     'skip',
   )
@@ -107,9 +126,10 @@ export function Settings() {
       setPageError(null)
 
       try {
-        const [user, roleTemplates] = await Promise.all([
+        const [user, roleTemplates, runtimeSettingsSnapshot] = await Promise.all([
           fetchCurrentUser(token),
           fetchAgentRoleTemplates(token),
+          fetchSystemRuntimeSettings(token),
         ])
         if (!isCurrent) {
           return
@@ -117,6 +137,10 @@ export function Settings() {
 
         setUser(user)
         setTemplates(roleTemplates)
+        setRuntimeSettings(runtimeSettingsSnapshot)
+        setConcurrencyLimitInput(
+          String(runtimeSettingsSnapshot.max_concurrent_workflows),
+        )
       } catch (error) {
         if (error instanceof ApiRequestError && error.status === 401) {
           clearSession()
@@ -140,6 +164,8 @@ export function Settings() {
       isCurrent = false
     }
   }, [clearSession, navigate, setUser, token])
+
+  const parsedConcurrencyLimit = parseConcurrencyLimitInput(concurrencyLimitInput)
 
   const enabledTemplateCount = useMemo(() => {
     return templates.filter((template) => template.is_enabled).length
@@ -165,6 +191,47 @@ export function Settings() {
   const reloadTemplates = async (authToken: string) => {
     const roleTemplates = await fetchAgentRoleTemplates(authToken)
     setTemplates(roleTemplates)
+  }
+
+  const handleSaveConcurrencyLimit = async () => {
+    if (!token) {
+      clearSession()
+      navigate('/login', { replace: true })
+      return
+    }
+
+    if (parsedConcurrencyLimit === null) {
+      setPageError('工作流并发上限必须是 1 到 10 之间的整数')
+      return
+    }
+
+    if (
+      runtimeSettings !== null &&
+      parsedConcurrencyLimit === runtimeSettings.max_concurrent_workflows
+    ) {
+      return
+    }
+
+    setIsSavingConcurrencyLimit(true)
+    setPageError(null)
+
+    try {
+      const nextRuntimeSettings = await updateSystemRuntimeSettings(token, {
+        max_concurrent_workflows: parsedConcurrencyLimit,
+      })
+      setRuntimeSettings(nextRuntimeSettings)
+      setConcurrencyLimitInput(String(nextRuntimeSettings.max_concurrent_workflows))
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        clearSession()
+        navigate('/login', { replace: true })
+        return
+      }
+
+      setPageError(resolveSettingsError(error))
+    } finally {
+      setIsSavingConcurrencyLimit(false)
+    }
   }
 
   const handleToggleTool = (toolId: string) => {
@@ -471,6 +538,63 @@ export function Settings() {
                 >
                   <FileUp className="h-4 w-4" />
                   {isImporting ? '导入中...' : '导入模板'}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[22px] border border-line bg-[#faf7f1] px-4 py-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-ink">工作流并发上限</div>
+                  <div className="mt-1 text-xs leading-6 text-ink-faint">
+                    修改 `MAX_CONCURRENT_WORKFLOWS` 后会写回仓库根目录 `.env`，并立即对当前进程生效。
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-ink-faint">
+                  <span className="rounded-full bg-white px-3 py-1">
+                    当前上限：{runtimeSettings?.max_concurrent_workflows ?? '--'}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1">
+                    执行中：{runtimeSettings?.active_workflow_count ?? '--'}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1">
+                    剩余槽位：{runtimeSettings?.remaining_slots ?? '--'}
+                  </span>
+                  <span className="rounded-full bg-white px-3 py-1">
+                    状态：{runtimeSettings ? (runtimeSettings.is_limit_reached ? '已满' : '可用') : '--'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px]">
+                <label className="block">
+                  <div className="mb-2 text-xs uppercase tracking-[0.18em] text-ink-faint">
+                    新的并发上限
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={concurrencyLimitInput}
+                    onChange={(event) => setConcurrencyLimitInput(event.target.value)}
+                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-[#bda98b]"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleSaveConcurrencyLimit()
+                  }}
+                  disabled={
+                    isSavingConcurrencyLimit ||
+                    parsedConcurrencyLimit === null ||
+                    runtimeSettings === null ||
+                    parsedConcurrencyLimit === runtimeSettings.max_concurrent_workflows
+                  }
+                  className="inline-flex items-center justify-center rounded-2xl bg-[#1f1c17] px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {isSavingConcurrencyLimit ? '保存中...' : '保存上限'}
                 </button>
               </div>
             </div>

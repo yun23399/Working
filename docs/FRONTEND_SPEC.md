@@ -105,16 +105,31 @@
 当前状态：
 
 - 自定义角色模板管理页已可用
+- 系统级工作流并发上限设置已可用
 - 支持创建、编辑、启停和删除用户级角色模板
 - 支持配置触发关键词、系统提示词、工具集和重试次数
 - 支持导出当前账号的角色模板 JSON 配置包
 - 支持导入角色模板 JSON，并按“跳过同名角色 / 覆盖同名角色”执行
+- 支持查看当前并发上限、执行中工作流数量、剩余槽位与是否达到上限
+- 支持修改系统级 `MAX_CONCURRENT_WORKFLOWS` 并实时生效
 
 后续职责：
 
 - 主题切换
 - 语言切换
-- 模型并发设置
+- 模型与更多系统设置
+
+状态定义：
+
+- `runtimeSettings`
+- `concurrencyLimitInput`
+- `isSavingConcurrencyLimit`
+- `templates`
+- `draft`
+- `editingTemplateId`
+- `keywordInput`
+- `importConflictStrategy`
+- `importResult`
 
 ## 2. 当前已实现组件
 
@@ -405,6 +420,13 @@ useWebSocket(conversationId: number | null, token: string | null)
 - `createWorkflowPreview`
 - `confirmWorkflowPreview`
 - `executeWorkflow`
+
+### `systemSettings.ts`
+
+负责：
+
+- `fetchSystemRuntimeSettings`
+- `updateSystemRuntimeSettings`
 
 ## 6. 当前交互闭环
 

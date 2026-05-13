@@ -4,6 +4,10 @@
 
 ### 后端能力
 
+- 新增系统运行配置接口 `/api/system-settings/runtime`
+- 新增工作流并发控制器 `backend/app/core/runtime/workflow_concurrency.py`
+- 工作流执行入口已接入系统级并发槽位校验，超限时返回 `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
+- 新增根目录 `.env` 中 `MAX_CONCURRENT_WORKFLOWS` 的读取、更新与实时重载能力
 - 新增用户自定义 Agent 角色模板表、服务层与 CRUD 接口
 - 新增自定义 Agent 角色模板导出接口 `/api/agent-role-templates/export`
 - 新增自定义 Agent 角色模板导入接口 `/api/agent-role-templates/import`
@@ -48,6 +52,8 @@
 
 ### 前端能力
 
+- 设置页新增“工作流并发上限”面板，可查看当前上限、执行中数量、剩余槽位与是否已满
+- 设置页支持修改工作流并发上限，并调用系统运行配置接口实时保存
 - 设置页升级为自定义 Agent 角色模板管理入口，支持创建、编辑、启停与删除
 - 设置页新增角色模板 JSON 导入/导出入口，支持“跳过同名角色”和“覆盖同名角色”两种导入策略
 - 工作流预览卡片新增模板来源展示，可区分内置模板与自定义角色
