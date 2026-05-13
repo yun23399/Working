@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Conversation } from '../types/chat'
-import type { ProjectSummary } from '../types/project'
+import type { ProjectDraft, ProjectSummary } from '../types/project'
 
 interface StoredProjectState {
   activeProjectId: string
@@ -13,12 +13,29 @@ interface ProjectState {
   setActiveProjectId: (projectId: string) => void
   syncConversations: (conversations: Conversation[]) => void
   attachConversationToActiveProject: (conversationId: number) => void
+  createProject: (draft: ProjectDraft) => void
+  updateProject: (projectId: string, draft: ProjectDraft) => void
+  deleteProject: (projectId: string) => void
+  moveConversationToProject: (conversationId: number, projectId: string) => void
 }
 
 const projectStorageKey = 'agentflow.project.state'
 
 function buildTimestamp(): string {
   return new Date().toISOString()
+}
+
+function sanitizeProjectText(value: string): string {
+  return value.trim().replace(/\s+/g, ' ')
+}
+
+function buildProjectId(name: string): string {
+  const normalized = sanitizeProjectText(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return normalized.length > 0 ? normalized : `project-${Date.now()}`
 }
 
 function buildDefaultProjects(): ProjectSummary[] {
@@ -126,6 +143,44 @@ function normalizeProjects(projects: ProjectSummary[]): ProjectSummary[] {
   return buildDefaultProjects()
 }
 
+function buildProjectSummary(draft: ProjectDraft, existingIds: Set<string>): ProjectSummary {
+  const timestamp = buildTimestamp()
+  const sanitizedName = sanitizeProjectText(draft.name)
+  const sanitizedSummary = sanitizeProjectText(draft.summary)
+  const baseId = buildProjectId(sanitizedName)
+  let nextId = baseId
+  let suffix = 1
+
+  while (existingIds.has(nextId)) {
+    suffix += 1
+    nextId = `${baseId}-${suffix}`
+  }
+
+  return {
+    id: nextId,
+    name: sanitizedName,
+    summary: sanitizedSummary,
+    conversationIds: [],
+    updatedAt: timestamp,
+  }
+}
+
+function resolveProjectDraft(draft: ProjectDraft): ProjectDraft {
+  const name = sanitizeProjectText(draft.name)
+  const summary = sanitizeProjectText(draft.summary)
+
+  return {
+    name: name.length > 0 ? name : '未命名项目',
+    summary: summary.length > 0 ? summary : '等待补充项目说明。',
+  }
+}
+
+function sortProjectsByUpdatedAt(projects: ProjectSummary[]): ProjectSummary[] {
+  return [...projects].sort((left, right) => {
+    return new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+  })
+}
+
 function attachConversationToProject(
   projects: ProjectSummary[],
   projectId: string,
@@ -147,6 +202,59 @@ function attachConversationToProject(
       updatedAt: buildTimestamp(),
     }
   })
+}
+
+function moveConversationBetweenProjects(
+  projects: ProjectSummary[],
+  projectId: string,
+  conversationId: number,
+): ProjectSummary[] {
+  return attachConversationToProject(projects, projectId, conversationId)
+}
+
+function deleteProjectAndReassignConversations(
+  projects: ProjectSummary[],
+  activeProjectId: string,
+  projectId: string,
+): { activeProjectId: string; projects: ProjectSummary[] } {
+  const normalizedProjects = normalizeProjects(projects)
+  if (normalizedProjects.length <= 1) {
+    return {
+      activeProjectId,
+      projects: normalizedProjects,
+    }
+  }
+
+  const targetProject = normalizedProjects.find((project) => project.id === projectId)
+  if (!targetProject) {
+    return {
+      activeProjectId,
+      projects: normalizedProjects,
+    }
+  }
+
+  const fallbackProject =
+    normalizedProjects.find((project) => project.id === activeProjectId && project.id !== projectId) ??
+    normalizedProjects.find((project) => project.id !== projectId) ??
+    normalizedProjects[0]
+
+  const remainingProjects = normalizedProjects.filter((project) => project.id !== projectId)
+  let nextProjects = remainingProjects
+
+  for (const conversationId of targetProject.conversationIds) {
+    nextProjects = moveConversationBetweenProjects(
+      nextProjects,
+      fallbackProject.id,
+      conversationId,
+    )
+  }
+
+  const nextActiveProjectId = activeProjectId === projectId ? fallbackProject.id : activeProjectId
+
+  return {
+    activeProjectId: nextActiveProjectId,
+    projects: sortProjectsByUpdatedAt(nextProjects),
+  }
 }
 
 function syncProjectsWithConversations(
@@ -269,6 +377,86 @@ export const useProjectStore = create<ProjectState>((set) => ({
         normalizeProjects(state.projects),
         state.activeProjectId,
         conversationId,
+      )
+
+      persistProjectState({
+        activeProjectId: state.activeProjectId,
+        projects: nextProjects,
+      })
+
+      return {
+        projects: nextProjects,
+      }
+    }),
+  createProject: (draft) =>
+    set((state) => {
+      const normalizedProjects = normalizeProjects(state.projects)
+      const resolvedDraft = resolveProjectDraft(draft)
+      const nextProject = buildProjectSummary(
+        resolvedDraft,
+        new Set(normalizedProjects.map((project) => project.id)),
+      )
+      const nextProjects = sortProjectsByUpdatedAt([nextProject, ...normalizedProjects])
+
+      persistProjectState({
+        activeProjectId: nextProject.id,
+        projects: nextProjects,
+      })
+
+      return {
+        activeProjectId: nextProject.id,
+        projects: nextProjects,
+      }
+    }),
+  updateProject: (projectId, draft) =>
+    set((state) => {
+      const resolvedDraft = resolveProjectDraft(draft)
+      const nextProjects = sortProjectsByUpdatedAt(
+        normalizeProjects(state.projects).map((project) =>
+          project.id === projectId
+            ? {
+                ...project,
+                name: resolvedDraft.name,
+                summary: resolvedDraft.summary,
+                updatedAt: buildTimestamp(),
+              }
+            : project,
+        ),
+      )
+
+      persistProjectState({
+        activeProjectId: state.activeProjectId,
+        projects: nextProjects,
+      })
+
+      return {
+        projects: nextProjects,
+      }
+    }),
+  deleteProject: (projectId) =>
+    set((state) => {
+      const nextState = deleteProjectAndReassignConversations(
+        state.projects,
+        state.activeProjectId,
+        projectId,
+      )
+
+      persistProjectState(nextState)
+
+      return nextState
+    }),
+  moveConversationToProject: (conversationId, projectId) =>
+    set((state) => {
+      const normalizedProjects = normalizeProjects(state.projects)
+      const targetExists = normalizedProjects.some((project) => project.id === projectId)
+      if (!targetExists) {
+        return {
+          projects: normalizedProjects,
+        }
+      }
+
+      const nextProjects = sortProjectsByUpdatedAt(
+        moveConversationBetweenProjects(normalizedProjects, projectId, conversationId),
       )
 
       persistProjectState({

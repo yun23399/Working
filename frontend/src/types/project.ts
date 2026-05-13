@@ -6,3 +6,9 @@ export interface ProjectSummary {
   conversationIds: number[]
   updatedAt: string
 }
+
+// 项目表单草稿类型，用于本地项目创建和编辑
+export interface ProjectDraft {
+  name: string
+  summary: string
+}

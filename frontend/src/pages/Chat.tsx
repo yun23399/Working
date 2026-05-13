@@ -438,7 +438,13 @@ export function Chat() {
             projectState.activeProjectId,
             items,
           )
-          const nextConversation = projectConversations[0] ?? null
+          const chatState = useChatStore.getState()
+          const nextConversation =
+            projectConversations.find(
+              (conversation) => conversation.id === chatState.activeConversationId,
+            ) ??
+            projectConversations[0] ??
+            null
           if (!nextConversation) {
             setActiveConversationId(null)
             resetMessages()
