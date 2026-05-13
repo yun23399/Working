@@ -1,14 +1,14 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #25）
+> 更新者：Codex（会话 #31）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**⏳ 阶段四：完善体验（已完成系统通知、本地多项目管理与对话内搜索，下一步继续完善日志与角色管理体验）**
+**⏳ 阶段四：完善体验（已完成系统通知、本地多项目管理、对话内搜索与自定义角色管理，下一步继续完善日志与配置能力）**
 
 ---
 
@@ -19,7 +19,7 @@
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
 | 阶段二：工作流引擎 | ✅ 已完成 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新、模板、共享工作区、断点、错误恢复与项目级记忆链路 |
 | 阶段三：工具集接入 | ✅ 已完成 | 已完成代码、文件、API、浏览器、图像工具、前端产物预览、导出与 Token 展示链路 |
-| 阶段四：完善体验 | ⏳ 进行中 | 已完成系统通知、本地多项目管理与对话内搜索，后续继续完善日志与角色管理体验 |
+| 阶段四：完善体验 | ⏳ 进行中 | 已完成系统通知、本地多项目管理、对话内搜索与自定义角色管理，后续继续完善日志与配置能力 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
 
 ---
@@ -122,7 +122,7 @@
 - [x] 系统通知（notifier.py）
 - [x] 多项目管理完善
 - [x] 对话内搜索
-- [ ] 用户自定义 Agent 角色管理
+- [x] 用户自定义 Agent 角色管理
 - [ ] Agent 配置导入/导出
 - [ ] 并发工作流上限配置
 - [ ] 页面过渡动效优化
@@ -166,6 +166,7 @@
 - ✅ 阶段四系统通知链路 — 2026-05-13 | 后端已支持关键工作流状态的本地通知日志、桌面提醒与声音回退机制
 - ✅ 阶段四本地多项目管理链路 — 2026-05-13 | 项目页已支持搜索、创建、编辑、删除与对话迁移，并保持聊天页项目上下文一致
 - ✅ 阶段四对话内搜索链路 — 2026-05-13 | 聊天页已支持当前对话内关键词搜索、匹配高亮与上下跳转定位
+- ✅ 阶段四用户自定义 Agent 角色管理链路 — 2026-05-13 | 已支持用户级角色模板 CRUD、启停控制、关键词触发重规划与节点模板快照执行
 
 ---
 
@@ -693,6 +694,31 @@
 - 验证结果：
   1. `frontend`: `npm run lint`、`npm run build` 通过
   2. 页面级联调逻辑已覆盖：关键词搜索、结果高亮、上下跳转、切换对话后搜索状态重置
+
+### 2026-05-13 会话 #31
+- 执行内容：完成阶段四用户自定义 Agent 角色管理链路
+- 新增后端文件：
+  1. `backend/app/models/agent_role_template.py`
+  2. `backend/app/schemas/agent_role_template.py`
+  3. `backend/app/services/agent_role_template_service.py`
+  4. `backend/app/api/agent_role_templates.py`
+  5. `backend/alembic/versions/20260513_000007_add_agent_role_templates.py`
+- 新增前端文件：
+  1. `frontend/src/api/agentRoleTemplates.ts`
+  2. `frontend/src/types/agentRoleTemplate.ts`
+- 关键改造：
+  1. 后端新增用户级自定义 Agent 角色模板表、Schema、服务层与 CRUD 接口
+  2. `workflow_planner.py` 支持在重新规划时按关键词匹配当前用户已启用的自定义角色模板
+  3. 工作流节点新增 `template_source`、`template_summary`、`template_system_prompt` 与 `trigger_keywords` 模板快照字段
+  4. `agent_spawner.py` 与 `agent_runner.py` 改为基于节点模板快照执行，避免运行期依赖内置模板查找
+  5. 设置页升级为真实角色模板管理入口，支持创建、编辑、启停与删除
+  6. 工作流确认卡片新增模板来源与关键词展示，便于确认当前节点是否命中自定义角色
+  7. README、API、产品流程、测试文档、前端规格、页面结构与 CHANGELOG 已同步到当前实现
+- 验证结果：
+  1. `backend`: `python -m alembic upgrade head`、`python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. API 级回归通过：自定义角色模板可完成创建、更新、启停与删除
+  4. 预览级回归通过：命中关键词后，工作流节点返回 `template_source=custom`
 
 ---
 

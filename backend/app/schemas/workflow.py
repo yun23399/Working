@@ -33,12 +33,15 @@ class WorkflowNodeSchema(BaseModel):
 
     id: str
     template_id: str
+    template_source: str = "builtin"
+    template_summary: str
     role: str
     task: str
     tools: list[str]
     llm: str
     max_retries: int = Field(ge=0)
     depends_on: list[str]
+    trigger_keywords: list[str] = []
     runtime_status: str | None = None
 
 

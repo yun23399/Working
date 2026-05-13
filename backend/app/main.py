@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.api.agent_role_templates import router as agent_role_templates_router
 from app.api.auth import router as auth_router
 from app.api.conversations import router as conversations_router
 from app.api.workflows import router as workflows_router
@@ -24,6 +25,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(auth_router)
+app.include_router(agent_role_templates_router)
 app.include_router(conversations_router)
 app.include_router(workflows_router)
 app.include_router(ws_router)

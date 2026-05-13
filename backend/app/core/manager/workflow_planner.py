@@ -3,8 +3,10 @@
 from dataclasses import dataclass
 
 from app.agents.templates import get_role_template
+from app.agents.templates.role_templates import RoleTemplate
 from app.core.llm.adapter import LLMAdapter
 from app.core.manager.requirement_extractor import RequirementSummary
+from app.services.agent_role_template_service import CustomRoleTemplate
 
 
 @dataclass(frozen=True)
@@ -13,12 +15,16 @@ class WorkflowNode:
 
     id: str
     template_id: str
+    template_source: str
+    template_summary: str
+    template_system_prompt: str
     role: str
     task: str
     tools: list[str]
     llm: str
     max_retries: int
     depends_on: list[str]
+    trigger_keywords: list[str]
 
 
 @dataclass(frozen=True)
@@ -37,55 +43,97 @@ class WorkflowPlanner:
 
         self.adapter = adapter or LLMAdapter()
 
-    def plan(self, requirement: RequirementSummary) -> WorkflowDag:
+    def plan(
+        self,
+        requirement: RequirementSummary,
+        custom_templates: list[CustomRoleTemplate] | None = None,
+    ) -> WorkflowDag:
         """根据结构化需求返回阶段二工作流预览 DAG"""
 
         runtime_label = self.adapter.get_runtime_label()
-        selected_template_ids = self.select_template_ids(requirement)
+        selected_templates = self.select_templates(requirement, custom_templates or [])
         nodes: list[WorkflowNode] = []
 
-        for index, template_id in enumerate(selected_template_ids, start=1):
-            template = get_role_template(template_id)
+        for index, template in enumerate(selected_templates, start=1):
             depends_on = [nodes[-1].id] if nodes else []
             nodes.append(
                 WorkflowNode(
                     id=f"node_{index}",
                     template_id=template.template_id,
+                    template_source=template.source,
+                    template_summary=template.summary,
+                    template_system_prompt=template.system_prompt,
                     role=template.role_name,
-                    task=self.build_node_task(template.template_id, requirement),
+                    task=self.build_node_task(template, requirement),
                     tools=template.default_tools,
                     llm=runtime_label,
                     max_retries=template.max_retries,
                     depends_on=depends_on,
+                    trigger_keywords=template.trigger_keywords or [],
                 )
             )
 
         return WorkflowDag(nodes=nodes, execution_mode="serial")
 
-    def select_template_ids(self, requirement: RequirementSummary) -> list[str]:
+    def select_templates(
+        self,
+        requirement: RequirementSummary,
+        custom_templates: list[CustomRoleTemplate],
+    ) -> list[RoleTemplate]:
         """根据需求内容和输出类型选择本轮工作流的角色模板序列"""
 
         context_text = "\n".join(
             [requirement.goal, requirement.context, *requirement.constraints]
         )
-        selected_template_ids = ["pm"]
+        selected_templates = [get_role_template("pm")]
 
         if self.needs_frontend(context_text, requirement.output_types):
-            selected_template_ids.append("frontend")
+            selected_templates.append(get_role_template("frontend"))
 
         if self.needs_design(context_text, requirement.output_types):
-            selected_template_ids.append("designer")
+            selected_templates.append(get_role_template("designer"))
 
         if self.needs_backend(context_text, requirement.output_types):
-            selected_template_ids.append("backend")
+            selected_templates.append(get_role_template("backend"))
 
         if self.needs_quality(context_text):
-            selected_template_ids.append("qa")
+            selected_templates.append(get_role_template("qa"))
 
-        if selected_template_ids == ["pm"]:
-            selected_template_ids.append("backend")
+        for custom_template in custom_templates:
+            if self.matches_custom_template(context_text, custom_template):
+                selected_templates.append(custom_template.to_role_template())
 
-        return selected_template_ids
+        if len(selected_templates) == 1:
+            selected_templates.append(get_role_template("backend"))
+
+        return self.deduplicate_templates(selected_templates)
+
+    def deduplicate_templates(
+        self,
+        templates: list[RoleTemplate],
+    ) -> list[RoleTemplate]:
+        """按模板编号去重，避免重复加入同一角色模板"""
+
+        deduplicated_templates: list[RoleTemplate] = []
+        seen_template_ids: set[str] = set()
+        for template in templates:
+            if template.template_id in seen_template_ids:
+                continue
+            seen_template_ids.add(template.template_id)
+            deduplicated_templates.append(template)
+        return deduplicated_templates
+
+    def matches_custom_template(
+        self,
+        context_text: str,
+        custom_template: CustomRoleTemplate,
+    ) -> bool:
+        """根据触发关键词判断当前需求是否需要加入自定义角色模板"""
+
+        normalized_text = context_text.lower()
+        return any(
+            keyword in normalized_text for keyword in custom_template.trigger_keywords
+        )
 
     def needs_frontend(self, context_text: str, output_types: list[str]) -> bool:
         """判断当前需求是否需要前端模板参与"""
@@ -171,7 +219,7 @@ class WorkflowPlanner:
 
     def build_node_task(
         self,
-        template_id: str,
+        template: RoleTemplate,
         requirement: RequirementSummary,
     ) -> str:
         """根据角色模板生成当前节点的任务说明"""
@@ -182,6 +230,7 @@ class WorkflowPlanner:
             else "document"
         )
 
+        template_id = template.template_id
         if template_id == "pm":
             return (
                 "梳理本轮需求目标、约束、范围边界和优先级，"
@@ -212,5 +261,8 @@ class WorkflowPlanner:
                 "输出可直接执行的验证摘要。"
             )
 
-        template = get_role_template(template_id)
-        return template.summary
+        return (
+            f"结合当前需求目标“{requirement.goal}”，"
+            f"从 {template.role_name} 视角输出可交接的执行摘要。"
+            f"重点职责：{template.summary}"
+        )

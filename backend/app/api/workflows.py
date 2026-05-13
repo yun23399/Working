@@ -308,6 +308,7 @@ def create_workflow_preview_endpoint(
         _, history_messages = load_conversation_context(db, conversation.id)
         workflow = create_workflow_preview(
             db,
+            current_user,
             conversation,
             history_messages,
             pause_after_nodes=payload.pause_after_nodes,

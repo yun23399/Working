@@ -67,6 +67,11 @@ function resolveTemplateLabel(templateId: string): string {
   return templateLabelMap[templateId] ?? templateId
 }
 
+// 根据模板来源渲染更明确的来源标签
+function resolveTemplateSourceLabel(templateSource: string): string {
+  return templateSource === 'custom' ? '自定义角色' : '内置模板'
+}
+
 // 根据工作流状态返回对应的界面提示
 function resolveStatusMeta(status: string): {
   label: string
@@ -488,6 +493,15 @@ export function WorkflowConfirm({
                         <span className="rounded-full bg-[#eef5ea] px-2 py-1 text-[11px] text-[#42613b]">
                           {resolveTemplateLabel(node.template_id)}
                         </span>
+                        <span
+                          className={`rounded-full px-2 py-1 text-[11px] ${
+                            node.template_source === 'custom'
+                              ? 'bg-[#fff3d9] text-[#9a6700]'
+                              : 'bg-[#f3efe6] text-ink-soft'
+                          }`}
+                        >
+                          {resolveTemplateSourceLabel(node.template_source)}
+                        </span>
                         <span className="rounded-full bg-[#f3efe6] px-2 py-1 text-[11px] text-ink-soft">
                           {node.runtime_status ?? 'waiting'}
                         </span>
@@ -503,6 +517,11 @@ export function WorkflowConfirm({
                         <span className="rounded-full bg-[#f3efe6] px-2.5 py-1">
                           依赖：{node.depends_on.length > 0 ? node.depends_on.join(', ') : '无'}
                         </span>
+                        {node.trigger_keywords.length > 0 ? (
+                          <span className="rounded-full bg-[#f3efe6] px-2.5 py-1">
+                            关键词：{node.trigger_keywords.join(' / ')}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   </div>

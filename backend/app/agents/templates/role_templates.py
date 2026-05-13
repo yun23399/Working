@@ -13,6 +13,9 @@ class RoleTemplate:
     system_prompt: str
     default_tools: list[str]
     max_retries: int
+    source: str = "builtin"
+    trigger_keywords: list[str] | None = None
+    is_enabled: bool = True
 
 
 ROLE_TEMPLATES: dict[str, RoleTemplate] = {
@@ -26,6 +29,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
         ),
         default_tools=["file_tool"],
         max_retries=2,
+        trigger_keywords=["需求", "规划", "阶段", "计划", "排期"],
     ),
     "frontend": RoleTemplate(
         template_id="frontend",
@@ -37,6 +41,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
         ),
         default_tools=["file_tool", "browser_tool", "code_executor"],
         max_retries=3,
+        trigger_keywords=["前端", "页面", "界面", "交互", "ui", "frontend"],
     ),
     "backend": RoleTemplate(
         template_id="backend",
@@ -48,6 +53,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
         ),
         default_tools=["file_tool", "api_caller", "code_executor"],
         max_retries=3,
+        trigger_keywords=["后端", "接口", "服务", "数据库", "api", "backend"],
     ),
     "qa": RoleTemplate(
         template_id="qa",
@@ -59,6 +65,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
         ),
         default_tools=["file_tool", "browser_tool"],
         max_retries=2,
+        trigger_keywords=["测试", "验收", "回归", "风险", "qa", "verify"],
     ),
     "designer": RoleTemplate(
         template_id="designer",
@@ -70,6 +77,7 @@ ROLE_TEMPLATES: dict[str, RoleTemplate] = {
         ),
         default_tools=["file_tool", "image_tool"],
         max_retries=2,
+        trigger_keywords=["设计", "视觉", "布局", "原型", "design", "visual"],
     ),
 }
 

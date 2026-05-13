@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from app.agents.base_agent import AgentResult, AgentTask, BaseAgent
-from app.agents.templates import get_role_template
+from app.agents.templates.role_templates import RoleTemplate
 from app.config import settings
 from app.core.llm.adapter import ChatMessage, LLMAdapter
 from app.tools import (
@@ -29,13 +29,13 @@ class GenericTaskAgent(BaseAgent):
         role: str,
         llm_model: str,
         max_retries: int,
-        template_id: str,
+        template: RoleTemplate,
     ) -> None:
         """初始化通用 Agent，保留当前节点的角色与重试信息"""
 
         super().__init__(role=role, llm_model=llm_model, max_retries=max_retries)
         self.adapter = LLMAdapter()
-        self.template = get_role_template(template_id)
+        self.template = template
         self.api_caller = ApiCallerTool()
         self.browser_tool = BrowserTool()
         self.file_tool = FileTool()

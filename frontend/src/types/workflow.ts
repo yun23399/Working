@@ -22,12 +22,15 @@ export interface RequirementSummary {
 export interface WorkflowNode {
   id: string
   template_id: string
+  template_source: string
+  template_summary: string
   role: string
   task: string
   tools: string[]
   llm: string
   max_retries: number
   depends_on: string[]
+  trigger_keywords: string[]
   runtime_status?: string
 }
 

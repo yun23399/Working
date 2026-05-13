@@ -12,6 +12,7 @@ from app.core.manager.requirement_extractor import RequirementExtractor
 from app.core.manager.workflow_planner import WorkflowPlanner
 from app.core.memory.project_memory import ProjectMemoryManager
 from app.models.conversation import Conversation
+from app.models.user import User
 from app.models.workflow import Workflow
 from app.schemas.workflow import (
     RequirementSummarySchema,
@@ -26,6 +27,7 @@ from app.schemas.workflow import (
     WorkflowRunSchema,
     WorkflowWorkspaceStateSchema,
 )
+from app.services.agent_role_template_service import list_enabled_custom_role_templates
 from app.workflow.checkpoint import WorkflowCheckpointController
 from app.workflow.workspace import WorkflowWorkspace
 
@@ -67,6 +69,7 @@ def get_workflow_by_id(
 
 def create_workflow_preview(
     db: Session,
+    user: User,
     conversation: Conversation,
     history_messages: list[ManagerConversationMessage],
     pause_after_nodes: list[str] | None = None,
@@ -74,7 +77,8 @@ def create_workflow_preview(
     """根据当前对话历史生成工作流预览并持久化"""
 
     requirement = RequirementExtractor().extract(conversation.title, history_messages)
-    dag = WorkflowPlanner().plan(requirement)
+    custom_templates = list_enabled_custom_role_templates(db, user)
+    dag = WorkflowPlanner().plan(requirement, custom_templates=custom_templates)
 
     workflow = Workflow(
         conversation_id=conversation.id,

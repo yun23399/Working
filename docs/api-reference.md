@@ -259,6 +259,130 @@ Authorization: Bearer <access_token>
 
 ## 4. 工作流接口
 
+## 4.1 自定义 Agent 角色模板接口
+
+### GET /api/agent-role-templates
+
+用途：获取当前用户的全部自定义 Agent 角色模板。
+
+成功响应：
+
+```json
+[
+  {
+    "template_id": "user-1-devops",
+    "role_name": "运维工程师",
+    "summary": "负责部署、监控、告警和运行环境检查。",
+    "system_prompt": "你是运维工程师，重点关注部署、环境稳定性、监控和回滚策略。",
+    "trigger_keywords": ["运维", "部署", "监控"],
+    "default_tools": ["file_tool", "api_caller"],
+    "max_retries": 2,
+    "is_enabled": true,
+    "created_at": "2026-05-13T09:00:00Z",
+    "updated_at": "2026-05-13T09:00:00Z"
+  }
+]
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `LIST_AGENT_ROLE_TEMPLATES_FAILED`
+
+### POST /api/agent-role-templates
+
+用途：创建当前用户的自定义 Agent 角色模板。
+
+请求体：
+
+```json
+{
+  "role_name": "运维工程师",
+  "summary": "负责部署、监控、告警和运行环境检查。",
+  "system_prompt": "你是运维工程师，重点关注部署、环境稳定性、监控和回滚策略。",
+  "trigger_keywords": ["运维", "部署", "监控"],
+  "default_tools": ["file_tool", "api_caller"],
+  "max_retries": 2,
+  "is_enabled": true
+}
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `VALIDATION_ERROR`
+- `AGENT_ROLE_TEMPLATE_CONFLICT`
+- `CREATE_AGENT_ROLE_TEMPLATE_FAILED`
+
+### PUT /api/agent-role-templates/{template_id}
+
+用途：更新当前用户的指定自定义 Agent 角色模板。
+
+请求体：
+
+```json
+{
+  "role_name": "运维工程师",
+  "summary": "负责部署、监控、告警和运行环境检查。",
+  "system_prompt": "你是运维工程师，重点关注部署、环境稳定性、监控和回滚策略。",
+  "trigger_keywords": ["运维", "部署", "监控", "告警"],
+  "default_tools": ["file_tool", "api_caller"],
+  "max_retries": 3,
+  "is_enabled": true
+}
+```
+
+成功响应：
+
+```json
+{
+  "template_id": "user-1-devops",
+  "role_name": "运维工程师",
+  "summary": "负责部署、监控、告警和运行环境检查。",
+  "system_prompt": "你是运维工程师，重点关注部署、环境稳定性、监控和回滚策略。",
+  "trigger_keywords": ["运维", "部署", "监控", "告警"],
+  "default_tools": ["file_tool", "api_caller"],
+  "max_retries": 3,
+  "is_enabled": true,
+  "created_at": "2026-05-13T09:00:00Z",
+  "updated_at": "2026-05-13T09:30:00Z"
+}
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `VALIDATION_ERROR`
+- `AGENT_ROLE_TEMPLATE_NOT_FOUND`
+- `AGENT_ROLE_TEMPLATE_CONFLICT`
+- `UPDATE_AGENT_ROLE_TEMPLATE_FAILED`
+
+### DELETE /api/agent-role-templates/{template_id}
+
+用途：删除当前用户的指定自定义 Agent 角色模板。
+
+成功响应：
+
+- `204 No Content`
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `AGENT_ROLE_TEMPLATE_NOT_FOUND`
+- `DELETE_AGENT_ROLE_TEMPLATE_FAILED`
+
+---
+
+## 5. 工作流接口
+
 ### GET /api/workflows/{conversation_id}
 
 用途：获取指定对话下的工作流预览列表，按最近创建时间倒序返回。
@@ -286,12 +410,15 @@ Authorization: Bearer <access_token>
         {
           "id": "node_1",
           "template_id": "pm",
+          "template_source": "builtin",
+          "template_summary": "负责梳理需求目标、约束和可交付范围，产出清晰执行摘要。",
           "role": "需求分析师",
           "task": "梳理目标、约束与交付范围，输出执行摘要。",
           "tools": ["file_tool"],
           "llm": "ollama/qwen2.5-coder:3b",
           "max_retries": 2,
           "depends_on": [],
+          "trigger_keywords": ["需求", "规划", "阶段", "计划", "排期"],
           "runtime_status": "waiting"
         }
       ]
@@ -478,34 +605,43 @@ path=design_brief.md
       {
         "id": "node_1",
         "template_id": "pm",
+        "template_source": "builtin",
+        "template_summary": "负责梳理需求目标、约束和可交付范围，产出清晰执行摘要。",
         "role": "需求分析师",
         "task": "梳理目标、约束与交付范围，输出执行摘要。",
         "tools": ["file_tool"],
         "llm": "ollama/qwen2.5-coder:3b",
         "max_retries": 2,
         "depends_on": [],
+        "trigger_keywords": ["需求", "规划", "阶段", "计划", "排期"],
         "runtime_status": "waiting"
       },
       {
         "id": "node_2",
         "template_id": "frontend",
+        "template_source": "builtin",
+        "template_summary": "负责页面结构、交互流程与前端实现规划。",
         "role": "方案规划师",
         "task": "根据需求摘要生成实施方案、任务拆分和风险提示。",
         "tools": ["file_tool"],
         "llm": "ollama/qwen2.5-coder:3b",
         "max_retries": 2,
         "depends_on": ["node_1"],
+        "trigger_keywords": ["前端", "页面", "界面", "交互", "ui", "frontend"],
         "runtime_status": "waiting"
       },
       {
         "id": "node_3",
         "template_id": "backend",
+        "template_source": "builtin",
+        "template_summary": "负责接口、数据结构和执行逻辑的后端交付。",
         "role": "交付执行者",
         "task": "根据确认后的方案产出最终交付物草稿，并整理交接说明。",
         "tools": ["code_executor", "file_tool"],
         "llm": "ollama/qwen2.5-coder:3b",
         "max_retries": 3,
         "depends_on": ["node_2"],
+        "trigger_keywords": ["后端", "接口", "服务", "数据库", "api", "backend"],
         "runtime_status": "waiting"
       }
     ]
@@ -541,11 +677,13 @@ path=design_brief.md
 - 当 `force_replan=true` 时，会基于当前对话历史重新创建一条新的预览记录
 - `pause_after_nodes` 可指定断点节点列表，命中后工作流会在节点完成后进入 `waiting_confirm`
 - 当前阶段会返回 `progress`、`execution_logs` 和节点 `runtime_status`
-- 节点同时返回 `template_id`，用于标识当前角色使用的预置模板
+- 节点会同时返回 `template_id`、`template_source`、`template_summary` 与 `trigger_keywords`
+- `template_source` 当前取值为 `builtin` 或 `custom`，用于区分内置模板和用户自定义角色
 - 当前阶段会同时返回共享工作区 `workspace` 状态和节点交接记录 `handoff_logs`
 - 当前阶段会返回 `project_memory`，用于展示同一对话下跨工作流复用的长期上下文
 - 当前阶段会返回 `workflow_run`，用于展示运行轮次与断点状态
 - 当工作流因节点失败进入人工恢复阶段时，会额外返回 `error_report`
+- 工作流重新规划时会自动读取当前用户已启用的自定义角色模板，并按触发关键词匹配后追加到节点序列
 - 预览阶段默认所有节点为 `waiting`
 
 错误码：
@@ -583,12 +721,15 @@ path=design_brief.md
       {
         "id": "node_1",
         "template_id": "pm",
+        "template_source": "builtin",
+        "template_summary": "负责梳理需求目标、约束和可交付范围，产出清晰执行摘要。",
         "role": "需求分析师",
         "task": "梳理目标、约束与交付范围，输出执行摘要。",
         "tools": ["file_tool"],
         "llm": "ollama/qwen2.5-coder:3b",
         "max_retries": 2,
         "depends_on": [],
+        "trigger_keywords": ["需求", "规划", "阶段", "计划", "排期"],
         "runtime_status": "waiting"
       }
     ]
@@ -655,12 +796,15 @@ path=design_brief.md
       {
         "id": "node_1",
         "template_id": "pm",
+        "template_source": "builtin",
+        "template_summary": "负责梳理需求目标、约束和可交付范围，产出清晰执行摘要。",
         "role": "需求分析师",
         "task": "梳理目标、约束与交付范围，输出执行摘要。",
         "tools": ["file_tool"],
         "llm": "ollama/qwen2.5-coder:3b",
         "max_retries": 2,
         "depends_on": [],
+        "trigger_keywords": ["需求", "规划", "阶段", "计划", "排期"],
         "runtime_status": "running"
       }
     ]
@@ -695,7 +839,8 @@ path=design_brief.md
 - 当前版本只支持最小串行执行，不支持并发节点
 - 执行过程通过 WebSocket `workflow_update` 和 `log` 事件回推到前端
 - 前端在节点完成、失败和终态时会自动回拉工作流与消息历史，补齐 `execution_logs` 与节点摘要消息
-- 当前节点会按 `template_id` 绑定预置角色模板，执行提示词和默认工具由模板提供
+- 当前节点执行时不再依赖实时查找内置模板，而是直接消费预览阶段写入节点的模板快照
+- 节点模板快照包含 `template_id`、`template_source`、`template_summary`、`template_system_prompt` 与 `trigger_keywords`
 - 每个节点完成后会向当前对话追加一条角色摘要消息
 - 每条工作流会在仓库根目录 `workspace/projects/conversation_<id>/workflow_<id>/` 创建共享工作区
 - 当前 `pm` / `qa` / `designer` 等模板命中 `file_tool` 时，会在 `artifacts/` 下真实生成 `.md` 摘要文件
@@ -795,7 +940,7 @@ path=design_brief.md
 - `MISSING_REDIRECT_INSTRUCTION`
 - `CONTROL_WORKFLOW_FAILED`
 
-## 5. 当前未实现但已规划的接口
+## 6. 当前未实现但已规划的接口
 
 以下接口仍处于规划阶段，暂未在当前仓库中实现：
 

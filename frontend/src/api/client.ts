@@ -11,7 +11,7 @@ interface ApiErrorResponse {
 }
 
 interface RequestJsonOptions {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   token?: string | null
   body?: object
   accept?: string
@@ -106,6 +106,9 @@ export async function requestJson<T>(path: string, options: RequestJsonOptions =
     ...options,
     accept: 'application/json',
   })
+  if (response.status === 204) {
+    return undefined as T
+  }
   return (await response.json()) as T
 }
 
