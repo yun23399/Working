@@ -1,6 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { ArrowUp, LoaderCircle, Wifi, WifiOff } from 'lucide-react'
+import {
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  LoaderCircle,
+  Search,
+  Wifi,
+  WifiOff,
+  X,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { MessageBubble } from './MessageBubble'
 import { TokenCounter } from './TokenCounter'
@@ -17,6 +26,11 @@ interface ChatWindowProps {
   socketStatus: SocketStatus
   onDraftChange: (draft: string) => void
   onSend: () => void
+}
+
+// 统一规范化搜索文本，避免大小写差异影响匹配结果
+function normalizeSearchText(value: string): string {
+  return value.trim().toLowerCase()
 }
 
 function resolveSocketLabel(socketStatus: SocketStatus): string {
@@ -49,6 +63,28 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const { t } = useTranslation()
   const listRef = useRef<HTMLDivElement | null>(null)
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const [searchKeyword, setSearchKeyword] = useState('')
+  const [activeMatchIndex, setActiveMatchIndex] = useState(0)
+
+  const normalizedSearchKeyword = normalizeSearchText(searchKeyword)
+  const matchedMessages =
+    normalizedSearchKeyword.length === 0
+      ? []
+      : messages.filter((message) =>
+          normalizeSearchText(message.content).includes(normalizedSearchKeyword),
+        )
+  const matchedMessageIds = matchedMessages.map((message) => message.id)
+  const matchedMessageIdSet = new Set(matchedMessageIds)
+  const hasSearchKeyword = normalizedSearchKeyword.length > 0
+  const resolvedActiveMatchIndex =
+    matchedMessageIds.length === 0
+      ? 0
+      : Math.min(activeMatchIndex, matchedMessageIds.length - 1)
+  const activeMatchedMessageId =
+    matchedMessageIds.length === 0
+      ? null
+      : matchedMessageIds[resolvedActiveMatchIndex]
 
   useEffect(() => {
     const container = listRef.current
@@ -56,17 +92,63 @@ export function ChatWindow({
       return
     }
 
+    if (hasSearchKeyword && activeMatchedMessageId !== null) {
+      return
+    }
+
     container.scrollTo({
       top: container.scrollHeight,
       behavior: 'smooth',
     })
-  }, [logs, messages])
+  }, [activeMatchedMessageId, hasSearchKeyword, logs, messages])
+
+  useEffect(() => {
+    if (activeMatchedMessageId === null) {
+      return
+    }
+
+    const targetNode = messageRefs.current[activeMatchedMessageId]
+    targetNode?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }, [activeMatchedMessageId])
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       onSend()
     }
+  }
+
+  const handleSearchChange = (value: string) => {
+    setSearchKeyword(value)
+    setActiveMatchIndex(0)
+  }
+
+  const handleJumpToPreviousMatch = () => {
+    if (matchedMessageIds.length === 0) {
+      return
+    }
+
+    setActiveMatchIndex((currentIndex) =>
+      currentIndex === 0 ? matchedMessageIds.length - 1 : currentIndex - 1,
+    )
+  }
+
+  const handleJumpToNextMatch = () => {
+    if (matchedMessageIds.length === 0) {
+      return
+    }
+
+    setActiveMatchIndex((currentIndex) =>
+      currentIndex >= matchedMessageIds.length - 1 ? 0 : currentIndex + 1,
+    )
+  }
+
+  const handleClearSearch = () => {
+    setSearchKeyword('')
+    setActiveMatchIndex(0)
   }
 
   const canSend =
@@ -91,6 +173,59 @@ export function ChatWindow({
             <WifiOff className="h-3.5 w-3.5" />
           )}
           {resolveSocketLabel(socketStatus)}
+        </div>
+      </div>
+
+      <div className="border-b border-line bg-[#fbfaf6] px-6 py-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <label className="flex flex-1 items-center gap-3 rounded-2xl border border-line bg-white px-4 py-3">
+            <Search className="h-4 w-4 text-ink-faint" />
+            <input
+              value={searchKeyword}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder="搜索当前对话消息"
+              className="w-full border-none bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
+            />
+            {hasSearchKeyword ? (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-ink-faint transition hover:bg-[#f2eee5] hover:text-ink"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </label>
+
+          <div className="flex items-center justify-between gap-3 xl:min-w-[320px]">
+            <div className="text-sm text-ink-soft">
+              {!hasSearchKeyword
+                ? '输入关键词，在当前对话中快速定位消息。'
+                : matchedMessageIds.length === 0
+                  ? '未找到匹配消息。'
+                  : `匹配 ${matchedMessageIds.length} 条消息，当前 ${
+                      resolvedActiveMatchIndex + 1
+                    } / ${matchedMessageIds.length}`}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleJumpToPreviousMatch}
+                disabled={matchedMessageIds.length === 0}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-white text-ink transition hover:bg-[#f7f3eb] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleJumpToNextMatch}
+                disabled={matchedMessageIds.length === 0}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-line bg-white text-ink transition hover:bg-[#f7f3eb] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -146,7 +281,19 @@ export function ChatWindow({
 
         {!isBootstrapping
           ? messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <div
+                key={message.id}
+                ref={(node) => {
+                  messageRefs.current[message.id] = node
+                }}
+              >
+                <MessageBubble
+                  message={message}
+                  searchQuery={searchKeyword}
+                  isSearchFocused={activeMatchedMessageId === message.id}
+                  isSearchMatch={matchedMessageIdSet.has(message.id)}
+                />
+              </div>
             ))
           : null}
       </div>

@@ -50,6 +50,7 @@
 - 工作流预览区：`WorkflowConfirm`
 - 工作流日志区：`LogViewer`
 - 聊天窗口：`ChatWindow`
+- 对话内搜索：内嵌在 `ChatWindow` 顶部
 
 依赖：
 

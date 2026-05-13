@@ -945,6 +945,7 @@ export function Chat() {
             </div>
             <div className="min-h-0 flex-1 overflow-hidden rounded-[24px] border border-line bg-white/80 shadow-sm">
               <ChatWindow
+                key={activeConversationId ?? 'empty-conversation'}
                 draft={draft}
                 errorMessage={errorMessage}
                 isBootstrapping={isBootstrapping}
