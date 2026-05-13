@@ -2,6 +2,7 @@
 export interface Conversation {
   id: number
   title: string
+  manager_role: string
   created_at: string
   updated_at: string
 }
@@ -9,6 +10,7 @@ export interface Conversation {
 // 创建对话请求体类型
 export interface ConversationCreateRequest {
   title: string
+  manager_role: string
 }
 
 // 后端消息记录类型
@@ -31,6 +33,25 @@ export interface ChatAccepted {
   message_id: number
   conversation_id: number
   accepted: boolean
+}
+
+// 总代理需求收集进度类型
+export interface ManagerProgress {
+  selected_role: string
+  completion_score: number
+  readiness_threshold: number
+  is_ready_to_start: boolean
+  missing_slots: string[]
+  collected_points: string[]
+  suggested_next_questions: string[]
+  summary: string
+}
+
+// 总代理状态接口响应类型
+export interface ConversationManagerState {
+  conversation_id: number
+  title: string
+  manager_progress: ManagerProgress
 }
 
 // 前端时间线消息类型

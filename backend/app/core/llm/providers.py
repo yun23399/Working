@@ -129,6 +129,7 @@ def resolve_provider_config() -> LLMProviderConfig:
 
     if provider == "openai":
         api_key = settings.openai_api_key.strip()
+        base_url = settings.openai_base_url.strip().rstrip("/") or None
     elif provider == "anthropic":
         api_key = settings.anthropic_api_key.strip()
     else:

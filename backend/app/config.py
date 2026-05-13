@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     app_port: int = 8000
     frontend_app_url: str = "http://127.0.0.1:5173"
     openai_api_key: str = ""
+    openai_base_url: str = ""
     anthropic_api_key: str = ""
     ollama_base_url: str = "http://localhost:11434"
     image_model: str = "gpt-image-1"
@@ -26,6 +27,7 @@ class Settings(BaseSettings):
     llm_provider: str = "auto"
     llm_model: str = ""
     llm_timeout_seconds: int = 60
+    manager_readiness_threshold: int = 85
     database_url: str = "sqlite:///./data/app.db"
     jwt_secret_key: str = token_urlsafe(32)
     jwt_expire_minutes: int = 10080
@@ -89,3 +91,10 @@ def reload_settings() -> None:
 
     os.environ["MAX_CONCURRENT_WORKFLOWS"] = str(settings.max_concurrent_workflows)
     os.environ["ENABLED_PLUGINS"] = settings.enabled_plugins
+    os.environ["LLM_PROVIDER"] = settings.llm_provider
+    os.environ["LLM_MODEL"] = settings.llm_model
+    os.environ["LLM_TIMEOUT_SECONDS"] = str(settings.llm_timeout_seconds)
+    os.environ["OPENAI_BASE_URL"] = settings.openai_base_url
+    os.environ["MANAGER_READINESS_THRESHOLD"] = str(
+        settings.manager_readiness_threshold
+    )

@@ -18,6 +18,12 @@ class Conversation(Base):
         ForeignKey("users.id"), nullable=False, index=True
     )
     title: Mapped[str] = mapped_column(String(120), nullable=False)
+    manager_role: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="general_manager",
+        server_default="general_manager",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

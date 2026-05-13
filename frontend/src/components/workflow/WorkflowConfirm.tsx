@@ -178,11 +178,11 @@ export function WorkflowConfirm({
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-[#ebe7db] px-3 py-1 text-xs text-ink-soft">
               <GitBranch className="h-3.5 w-3.5" />
-              阶段二 · 工作流预览
+              总代理启动后 · 工作流预览
             </div>
-            <h2 className="mt-3 text-xl font-semibold text-ink">先确认执行链路，再进入后续编排</h2>
+            <h2 className="mt-3 text-xl font-semibold text-ink">总代理生成执行链路后，再确认是否执行</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
-              当前版本先提供需求提取、节点拆分、确认和最小串行执行入口。断点、并发和工具编排将在后续步骤补齐。
+              当前版本支持总代理先收集需求，再自动生成角色节点、确认工作流并进入执行。下方卡片展示的是总代理已经整理出的执行链路。
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">

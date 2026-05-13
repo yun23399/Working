@@ -4,16 +4,26 @@ import {
   Bot,
   Download,
   FileUp,
+  KeyRound,
+  Network,
   Package,
   PencilLine,
   Plus,
   Power,
   Save,
+  ShieldCheck,
   Trash2,
+  WandSparkles,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { fetchInstalledPlugins, updateInstalledPlugin } from '../api/plugins'
-import { fetchSystemRuntimeSettings, updateSystemRuntimeSettings } from '../api/systemSettings'
+import {
+  fetchSystemLlmSettings,
+  fetchSystemRuntimeSettings,
+  testSystemLlmSettings,
+  updateSystemLlmSettings,
+  updateSystemRuntimeSettings,
+} from '../api/systemSettings'
 import {
   createAgentRoleTemplate,
   deleteAgentRoleTemplate,
@@ -33,7 +43,12 @@ import type {
   AgentRoleTemplateImportResponse,
 } from '../types/agentRoleTemplate'
 import type { InstalledPlugin } from '../types/plugin'
-import type { SystemRuntimeSettings } from '../types/systemSettings'
+import type {
+  SystemLlmSettings,
+  SystemLlmSettingsDraft,
+  SystemLlmSettingsTestResult,
+  SystemRuntimeSettings,
+} from '../types/systemSettings'
 
 const supportedTools = [
   { id: 'file_tool', label: '文件工具' },
@@ -51,6 +66,15 @@ const emptyRoleDraft: AgentRoleTemplateDraft = {
   default_tools: ['file_tool'],
   max_retries: 2,
   is_enabled: true,
+}
+
+const defaultLlmDraft: SystemLlmSettingsDraft = {
+  provider: 'openai',
+  model: 'gpt-5.4',
+  base_url: '',
+  api_key: '',
+  timeout_seconds: 60,
+  manager_readiness_threshold: 85,
 }
 
 function resolveSettingsError(error: unknown): string {
@@ -109,6 +133,11 @@ export function Settings() {
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [runtimeSettings, setRuntimeSettings] = useState<SystemRuntimeSettings | null>(null)
+  const [llmSettings, setLlmSettings] = useState<SystemLlmSettings | null>(null)
+  const [llmDraft, setLlmDraft] = useState<SystemLlmSettingsDraft>(defaultLlmDraft)
+  const [isSavingLlmSettings, setIsSavingLlmSettings] = useState(false)
+  const [isTestingLlmSettings, setIsTestingLlmSettings] = useState(false)
+  const [llmTestResult, setLlmTestResult] = useState<SystemLlmSettingsTestResult | null>(null)
   const [plugins, setPlugins] = useState<InstalledPlugin[]>([])
   const [concurrencyLimitInput, setConcurrencyLimitInput] = useState('3')
   const [isSavingConcurrencyLimit, setIsSavingConcurrencyLimit] = useState(false)
@@ -131,10 +160,17 @@ export function Settings() {
       setPageError(null)
 
       try {
-        const [user, roleTemplates, runtimeSettingsSnapshot, installedPlugins] = await Promise.all([
+        const [
+          user,
+          roleTemplates,
+          runtimeSettingsSnapshot,
+          llmSettingsSnapshot,
+          installedPlugins,
+        ] = await Promise.all([
           fetchCurrentUser(token),
           fetchAgentRoleTemplates(token),
           fetchSystemRuntimeSettings(token),
+          fetchSystemLlmSettings(token),
           fetchInstalledPlugins(token),
         ])
         if (!isCurrent) {
@@ -144,6 +180,15 @@ export function Settings() {
         setUser(user)
         setTemplates(roleTemplates)
         setRuntimeSettings(runtimeSettingsSnapshot)
+        setLlmSettings(llmSettingsSnapshot)
+        setLlmDraft({
+          provider: llmSettingsSnapshot.provider,
+          model: llmSettingsSnapshot.model,
+          base_url: llmSettingsSnapshot.base_url,
+          api_key: '',
+          timeout_seconds: llmSettingsSnapshot.timeout_seconds,
+          manager_readiness_threshold: llmSettingsSnapshot.manager_readiness_threshold,
+        })
         setPlugins(installedPlugins)
         setConcurrencyLimitInput(
           String(runtimeSettingsSnapshot.max_concurrent_workflows),
@@ -274,6 +319,84 @@ export function Settings() {
       setPageError(resolveSettingsError(error))
     } finally {
       setIsSavingConcurrencyLimit(false)
+    }
+  }
+
+  const handleLlmDraftChange = <K extends keyof SystemLlmSettingsDraft>(
+    field: K,
+    value: SystemLlmSettingsDraft[K],
+  ) => {
+    setLlmDraft((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
+
+  const handleSaveLlmSettings = async () => {
+    if (!token) {
+      clearSession()
+      navigate('/login', { replace: true })
+      return
+    }
+
+    setIsSavingLlmSettings(true)
+    setPageError(null)
+
+    try {
+      const nextSettings = await updateSystemLlmSettings(token, llmDraft)
+      setLlmSettings(nextSettings)
+      setLlmDraft((current) => ({
+        ...current,
+        api_key: '',
+        provider: nextSettings.provider,
+        model: nextSettings.model,
+        base_url: nextSettings.base_url,
+        timeout_seconds: nextSettings.timeout_seconds,
+        manager_readiness_threshold: nextSettings.manager_readiness_threshold,
+      }))
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        clearSession()
+        navigate('/login', { replace: true })
+        return
+      }
+
+      setPageError(resolveSettingsError(error))
+    } finally {
+      setIsSavingLlmSettings(false)
+    }
+  }
+
+  const handleTestLlmSettings = async () => {
+    if (!token) {
+      clearSession()
+      navigate('/login', { replace: true })
+      return
+    }
+
+    setIsTestingLlmSettings(true)
+    setPageError(null)
+    setLlmTestResult(null)
+
+    try {
+      const result = await testSystemLlmSettings(token, {
+        provider: llmDraft.provider,
+        model: llmDraft.model,
+        base_url: llmDraft.base_url,
+        api_key: llmDraft.api_key,
+        timeout_seconds: llmDraft.timeout_seconds,
+      })
+      setLlmTestResult(result)
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        clearSession()
+        navigate('/login', { replace: true })
+        return
+      }
+
+      setPageError(resolveSettingsError(error))
+    } finally {
+      setIsTestingLlmSettings(false)
     }
   }
 
@@ -538,6 +661,24 @@ export function Settings() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             <div className="rounded-[22px] border border-line bg-white/80 px-4 py-4">
+              <div className="text-xs text-ink-faint">当前模型</div>
+              <div className="mt-2 text-lg font-semibold text-ink">
+                {llmSettings?.model ?? '未配置'}
+              </div>
+            </div>
+            <div className="rounded-[22px] border border-line bg-white/80 px-4 py-4">
+              <div className="text-xs text-ink-faint">API 状态</div>
+              <div className="mt-2 text-lg font-semibold text-ink">
+                {llmSettings?.api_key_configured ? '已配置密钥' : '未配置密钥'}
+              </div>
+            </div>
+            <div className="rounded-[22px] border border-line bg-white/80 px-4 py-4">
+              <div className="text-xs text-ink-faint">总代理开始阈值</div>
+              <div className="mt-2 text-lg font-semibold text-ink">
+                {llmSettings?.manager_readiness_threshold ?? '--'}%
+              </div>
+            </div>
+            <div className="rounded-[22px] border border-line bg-white/80 px-4 py-4">
               <div className="text-xs text-ink-faint">角色模板总数</div>
               <div className="mt-2 text-2xl font-semibold text-ink">{templates.length}</div>
             </div>
@@ -558,6 +699,151 @@ export function Settings() {
           </div>
 
           <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-line bg-white/70 px-5 py-5">
+            <div className="rounded-[22px] border border-line bg-[#faf7f1] px-4 py-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+                    <Network className="h-4 w-4" />
+                    LLM / API 配置
+                  </div>
+                  <div className="mt-1 text-xs leading-6 text-ink-faint">
+                    在这里配置第三方 OpenAI 兼容接口、模型名称和总代理的开始任务阈值。密钥只会写入本地 `.env`，不会回显已有值。
+                  </div>
+                </div>
+                <div className="rounded-full bg-white px-3 py-1 text-xs text-ink-faint">
+                  当前提供商：{llmSettings?.provider ?? '--'}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 xl:grid-cols-2">
+                <label className="block">
+                  <div className="mb-2 text-sm font-medium text-ink">提供商</div>
+                  <select
+                    value={llmDraft.provider}
+                    onChange={(event) => handleLlmDraftChange('provider', event.target.value)}
+                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-[#bda98b]"
+                  >
+                    <option value="openai">OpenAI 兼容接口</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="ollama">Ollama</option>
+                    <option value="auto">Auto</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <div className="mb-2 text-sm font-medium text-ink">模型名称</div>
+                  <input
+                    value={llmDraft.model}
+                    onChange={(event) => handleLlmDraftChange('model', event.target.value)}
+                    placeholder="例如：gpt-5.4"
+                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-[#bda98b]"
+                  />
+                </label>
+
+                <label className="block xl:col-span-2">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-ink">
+                    <Network className="h-4 w-4" />
+                    接口地址
+                  </div>
+                  <input
+                    value={llmDraft.base_url}
+                    onChange={(event) => handleLlmDraftChange('base_url', event.target.value)}
+                    placeholder="例如：https://shiyunapi.com/v1"
+                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-[#bda98b]"
+                  />
+                </label>
+
+                <label className="block xl:col-span-2">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-ink">
+                    <KeyRound className="h-4 w-4" />
+                    API Key
+                  </div>
+                  <input
+                    type="password"
+                    value={llmDraft.api_key}
+                    onChange={(event) => handleLlmDraftChange('api_key', event.target.value)}
+                    placeholder={
+                      llmSettings?.api_key_configured
+                        ? '已配置密钥，如需更换请重新输入'
+                        : '请输入 API Key'
+                    }
+                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-[#bda98b]"
+                  />
+                </label>
+
+                <label className="block">
+                  <div className="mb-2 text-sm font-medium text-ink">超时时间（秒）</div>
+                  <input
+                    type="number"
+                    min={5}
+                    max={300}
+                    value={llmDraft.timeout_seconds}
+                    onChange={(event) =>
+                      handleLlmDraftChange('timeout_seconds', Number(event.target.value) || 60)
+                    }
+                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-[#bda98b]"
+                  />
+                </label>
+
+                <label className="block">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-medium text-ink">
+                    <ShieldCheck className="h-4 w-4" />
+                    总代理开始阈值（%）
+                  </div>
+                  <input
+                    type="number"
+                    min={50}
+                    max={100}
+                    value={llmDraft.manager_readiness_threshold}
+                    onChange={(event) =>
+                      handleLlmDraftChange(
+                        'manager_readiness_threshold',
+                        Number(event.target.value) || 85,
+                      )
+                    }
+                    className="w-full rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none transition focus:border-[#bda98b]"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleTestLlmSettings()
+                  }}
+                  disabled={isTestingLlmSettings}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink transition hover:bg-[#faf7f1] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <WandSparkles className="h-4 w-4" />
+                  {isTestingLlmSettings ? '测试中...' : '测试连接'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleSaveLlmSettings()
+                  }}
+                  disabled={isSavingLlmSettings}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#1f1c17] px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {isSavingLlmSettings ? '保存中...' : '保存 API 配置'}
+                </button>
+              </div>
+
+              {llmTestResult ? (
+                <div className="mt-4 rounded-[20px] border border-line bg-white/80 px-4 py-4">
+                  <div className="text-sm font-semibold text-ink">连接测试结果</div>
+                  <div className="mt-2 text-sm text-ink-soft">
+                    运行标签：{llmTestResult.runtime_label}
+                  </div>
+                  <div className="mt-2 text-sm leading-6 text-ink-soft">
+                    返回内容：{llmTestResult.message}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
             <div className="rounded-[22px] border border-line bg-[#faf7f1] px-4 py-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>

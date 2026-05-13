@@ -5,9 +5,12 @@ import { ApiRequestError } from '../api/client'
 import { exportWorkflowArtifactsArchive } from '../api/workflowArtifacts'
 import {
   createConversation,
+  fetchConversationManagerState,
   fetchConversationMessages,
   fetchConversations,
   sendChatMessage,
+  startConversationTask,
+  updateConversationManagerRole,
 } from '../api/conversations'
 import {
   confirmWorkflowPreview,
@@ -41,6 +44,14 @@ import {
 } from '../stores/workflowStore'
 import type { ChatMessage, Conversation, MessageRecord } from '../types/chat'
 import { downloadBlobFile } from '../utils/export'
+import type { ConversationManagerState } from '../types/chat'
+
+const managerRoleOptions = [
+  { id: 'general_manager', label: '总代理' },
+  { id: 'delivery_manager', label: '交付总代理' },
+  { id: 'product_manager', label: '产品总代理' },
+  { id: 'technical_manager', label: '技术总代理' },
+]
 
 // 将后端消息记录映射为前端聊天时间线结构
 function toChatMessage(message: MessageRecord): ChatMessage {
@@ -81,6 +92,10 @@ export function Chat() {
   const [artifactExportError, setArtifactExportError] = useState<string | null>(null)
   const [isExportingArtifacts, setIsExportingArtifacts] = useState(false)
   const [selectedArtifactPath, setSelectedArtifactPath] = useState<string | null>(null)
+  const [managerState, setManagerState] = useState<ConversationManagerState | null>(null)
+  const [isLoadingManagerState, setIsLoadingManagerState] = useState(false)
+  const [isStartingTask, setIsStartingTask] = useState(false)
+  const [isUpdatingManagerRole, setIsUpdatingManagerRole] = useState(false)
   const clearSession = useAuthStore((state) => state.clearSession)
   const setUser = useAuthStore((state) => state.setUser)
   const token = useAuthStore((state) => state.token)
@@ -212,12 +227,31 @@ export function Chat() {
     }
   }, [navigate, token])
 
+  const loadManagerState = useCallback(
+    async (conversationId: number, authToken: string) => {
+      setIsLoadingManagerState(true)
+      try {
+        const nextManagerState = await fetchConversationManagerState(authToken, conversationId)
+        setManagerState(nextManagerState)
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 401) {
+          handleUnauthorized()
+          return
+        }
+      } finally {
+        setIsLoadingManagerState(false)
+      }
+    },
+    [handleUnauthorized],
+  )
+
   const loadMessages = useCallback(async (nextConversationId: number, authToken: string) => {
     try {
       setArtifactExportError(null)
       const records = await fetchConversationMessages(authToken, nextConversationId)
       setMessages(records.map(toChatMessage))
       setActiveConversationId(nextConversationId)
+      void loadManagerState(nextConversationId, authToken)
       setError(null)
     } catch (error) {
       const message = resolveChatError(error)
@@ -227,7 +261,14 @@ export function Chat() {
       }
       setError(message)
     }
-  }, [handleUnauthorized, setActiveConversationId, setArtifactExportError, setError, setMessages])
+  }, [
+    handleUnauthorized,
+    loadManagerState,
+    setActiveConversationId,
+    setArtifactExportError,
+    setError,
+    setMessages,
+  ])
 
   const refreshConversationRuntimeState = useCallback(
     async (conversationId: number, authToken: string) => {
@@ -341,6 +382,15 @@ export function Chat() {
   useWebSocket(activeConversationId, token, {
     onLogEvent: handleWorkflowLogEvent,
     onWorkflowUpdate: handleWorkflowUpdateEvent,
+    onAgentDone: (event) => {
+      if (
+        event.payload.agent_id === 'manager' &&
+        activeConversationId !== null &&
+        token
+      ) {
+        void loadManagerState(activeConversationId, token)
+      }
+    },
   })
 
   useEffect(() => {
@@ -405,6 +455,7 @@ export function Chat() {
       setCreatingConversation(true)
       const conversation = await createConversation(authToken, {
         title: buildConversationTitle(),
+        manager_role: 'general_manager',
       })
       prependConversation(conversation)
       attachConversationToActiveProject(conversation.id)
@@ -502,6 +553,7 @@ export function Chat() {
           if (!nextConversation) {
             setActiveConversationId(null)
             resetMessages()
+            setManagerState(null)
             setError(null)
             return
           }
@@ -635,6 +687,7 @@ export function Chat() {
       if (nextVisibleConversations.length === 0) {
         setActiveConversationId(null)
         resetMessages()
+        setManagerState(null)
         setError(null)
         return
       }
@@ -690,6 +743,7 @@ export function Chat() {
       })
       confirmPendingUserMessage(tempId, result.message_id)
       touchConversation(activeConversationId)
+      void loadManagerState(activeConversationId, token)
     } catch (error) {
       removeMessage(tempId)
       setDraft(content)
@@ -738,6 +792,63 @@ export function Chat() {
       setWorkflowError(resolveChatError(error))
     } finally {
       setWorkflowGeneratingConversationId(null)
+    }
+  }
+
+  const handleUpdateManagerRole = async (managerRole: string) => {
+    if (!token || activeConversationId === null) {
+      return
+    }
+
+    setIsUpdatingManagerRole(true)
+    setError(null)
+
+    try {
+      const updatedConversation = await updateConversationManagerRole(
+        token,
+        activeConversationId,
+        managerRole,
+      )
+      setConversations(
+        conversations.map((conversation) =>
+          conversation.id === updatedConversation.id ? updatedConversation : conversation,
+        ),
+      )
+      void loadManagerState(activeConversationId, token)
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setError(resolveChatError(error))
+    } finally {
+      setIsUpdatingManagerRole(false)
+    }
+  }
+
+  const handleStartTaskFromManager = async () => {
+    if (!token || activeConversationId === null) {
+      return
+    }
+
+    setIsStartingTask(true)
+    setWorkflowError(null)
+    setArtifactExportError(null)
+
+    try {
+      const workflow = await startConversationTask(token, activeConversationId)
+      upsertWorkflow(workflow)
+      void loadManagerState(activeConversationId, token)
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      setWorkflowError(resolveChatError(error))
+    } finally {
+      setIsStartingTask(false)
     }
   }
 
@@ -942,6 +1053,155 @@ export function Chat() {
           }
         >
           <div className="flex h-full min-h-0 flex-col gap-4 p-4">
+            <section className="shrink-0 overflow-hidden rounded-[24px] border border-line bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(245,240,231,0.98)_100%)] shadow-sm">
+              <div className="border-b border-line/80 px-6 py-5">
+                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full bg-[#ebe7db] px-3 py-1 text-xs text-ink-soft">
+                      阶段五 · 总代理需求收集
+                    </div>
+                    <h2 className="mt-3 text-xl font-semibold text-ink">
+                      先把需求问完整，再由总代理自动组建执行 Agent
+                    </h2>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-ink-soft">
+                      用户先配置模型并选择总代理角色，在聊天中逐步补齐目标、范围、约束和验收标准。当总代理判断信息足够完整后，才进入任务启动与自动拆分。
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {managerRoleOptions.map((role) => {
+                      const isSelected = activeConversation?.manager_role === role.id
+                      return (
+                        <button
+                          key={role.id}
+                          type="button"
+                          onClick={() => {
+                            void handleUpdateManagerRole(role.id)
+                          }}
+                          disabled={activeConversationId === null || isUpdatingManagerRole}
+                          className={`rounded-full px-3 py-2 text-xs transition ${
+                            isSelected
+                              ? 'bg-[#1f1c17] text-white'
+                              : 'border border-line bg-white text-ink-soft'
+                          } disabled:cursor-not-allowed disabled:opacity-60`}
+                        >
+                          {role.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-4 px-6 py-5 xl:grid-cols-[1.1fr_0.9fr]">
+                <div className="space-y-4">
+                  <div className="rounded-[20px] border border-line bg-white/80 px-5 py-5">
+                    <div className="text-sm font-medium text-ink">总代理准备进度</div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#ece7dc]">
+                      <div
+                        className="h-full rounded-full bg-[#4c6ef5] transition-all"
+                        style={{
+                          width: `${managerState?.manager_progress.completion_score ?? 0}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-ink-faint">
+                      <span>
+                        当前完成度：{managerState?.manager_progress.completion_score ?? '--'}%
+                      </span>
+                      <span>
+                        开始阈值：{managerState?.manager_progress.readiness_threshold ?? '--'}%
+                      </span>
+                      <span>
+                        状态：
+                        {managerState?.manager_progress.is_ready_to_start
+                          ? ' 可开始任务'
+                          : ' 继续收集需求'}
+                      </span>
+                    </div>
+                    <div className="mt-4 rounded-[18px] border border-line bg-[#faf7f0] px-4 py-3 text-sm text-ink-soft">
+                      {isLoadingManagerState
+                        ? '正在同步总代理理解进度...'
+                        : managerState?.manager_progress.summary ??
+                          '当前还没有总代理状态，请先发送需求消息。'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[20px] border border-line bg-white/80 px-5 py-5">
+                    <div className="text-sm font-medium text-ink">已收集到的任务点</div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(managerState?.manager_progress.collected_points ?? []).length > 0 ? (
+                        managerState?.manager_progress.collected_points.map((item) => (
+                          <span
+                            key={item}
+                            className="rounded-full bg-[#ece7dc] px-3 py-1 text-xs text-ink-soft"
+                          >
+                            {item}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-sm text-ink-faint">暂未提取到关键点。</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="rounded-[20px] border border-line bg-[#fbf8f2] px-5 py-5">
+                    <div className="text-sm font-medium text-ink">当前仍缺的信息</div>
+                    <div className="mt-3 space-y-2">
+                      {(managerState?.manager_progress.missing_slots ?? []).length > 0 ? (
+                        managerState?.manager_progress.missing_slots.map((item) => (
+                          <div
+                            key={item}
+                            className="rounded-2xl border border-line bg-white/90 px-4 py-3 text-sm text-ink-soft"
+                          >
+                            {item}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-2xl border border-line bg-white/90 px-4 py-3 text-sm text-ink-soft">
+                          当前关键信息已经补齐，可以考虑开始任务。
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[20px] border border-line bg-[#fbf8f2] px-5 py-5">
+                    <div className="text-sm font-medium text-ink">总代理建议下一步问什么</div>
+                    <div className="mt-3 space-y-2">
+                      {(managerState?.manager_progress.suggested_next_questions ?? []).length > 0 ? (
+                        managerState?.manager_progress.suggested_next_questions.map((item) => (
+                          <div
+                            key={item}
+                            className="rounded-2xl border border-line bg-white/90 px-4 py-3 text-sm text-ink-soft"
+                          >
+                            {item}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="rounded-2xl border border-line bg-white/90 px-4 py-3 text-sm text-ink-soft">
+                          当前没有更多必问项。
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleStartTaskFromManager()
+                      }}
+                      disabled={
+                        activeConversationId === null ||
+                        !managerState?.manager_progress.is_ready_to_start ||
+                        isStartingTask
+                      }
+                      className="mt-4 inline-flex items-center justify-center rounded-2xl bg-[#4c6ef5] px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isStartingTask ? '总代理正在创建任务...' : '开始任务'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
             <WorkflowConfirm
               workflow={activeWorkflowPreview}
               hasConversation={activeConversationId !== null}

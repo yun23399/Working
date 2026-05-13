@@ -9,6 +9,26 @@ class ConversationCreateSchema(BaseModel):
     """创建对话请求模型，接收对话标题"""
 
     title: str = Field(min_length=1, max_length=120)
+    manager_role: str = Field(default="general_manager", min_length=1, max_length=50)
+
+
+class ConversationManagerRoleUpdateSchema(BaseModel):
+    """更新总代理角色的请求模型"""
+
+    manager_role: str = Field(min_length=1, max_length=50)
+
+
+class ManagerProgressSchema(BaseModel):
+    """总代理需求收集进度模型，供前端展示理解程度与下一步动作"""
+
+    selected_role: str
+    completion_score: int = Field(ge=0, le=100)
+    readiness_threshold: int = Field(ge=50, le=100)
+    is_ready_to_start: bool
+    missing_slots: list[str]
+    collected_points: list[str]
+    suggested_next_questions: list[str]
+    summary: str
 
 
 class ConversationResponseSchema(BaseModel):
@@ -16,6 +36,7 @@ class ConversationResponseSchema(BaseModel):
 
     id: int
     title: str
+    manager_role: str
     created_at: datetime
     updated_at: datetime
 
@@ -47,3 +68,11 @@ class ChatAcceptedSchema(BaseModel):
     message_id: int
     conversation_id: int
     accepted: bool
+
+
+class ConversationManagerStateResponseSchema(BaseModel):
+    """总代理状态响应模型，供聊天页轮询查看任务准备进度"""
+
+    conversation_id: int
+    title: str
+    manager_progress: ManagerProgressSchema
