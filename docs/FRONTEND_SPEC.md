@@ -46,6 +46,7 @@
 - 支持在日志面板按等级和关键词过滤日志，并导出当前筛选结果
 - 支持在当前对话内按关键词搜索历史消息，并在匹配结果之间跳转
 - 支持退出登录
+- 路由切换时支持统一页面淡入上移动效
 
 状态定义：
 
@@ -245,7 +246,23 @@ interface ChatWindowProps {
 }
 ```
 
-### 2.5 `WorkflowConfirm`
+### 2.5 `PageTransition`
+
+功能说明：
+
+- 为登录页、聊天页、项目页和设置页提供统一的路由切换转场
+- 默认使用轻微上移、淡入与顶部冷蓝光晕过渡
+- 在“减少动态效果”环境中自动降级为更轻的透明度过渡
+
+Props：
+
+```ts
+interface PageTransitionProps {
+  children: ReactNode
+}
+```
+
+### 2.6 `WorkflowConfirm`
 
 功能说明：
 
@@ -275,7 +292,7 @@ interface WorkflowConfirmProps {
 }
 ```
 
-### 2.6 `MessageBubble`
+### 2.7 `MessageBubble`
 
 功能说明：
 
@@ -291,7 +308,7 @@ interface MessageBubbleProps {
 }
 ```
 
-### 2.7 `LogViewer`
+### 2.8 `LogViewer`
 
 功能说明：
 
@@ -310,7 +327,7 @@ interface LogViewerProps {
 }
 ```
 
-### 2.8 `StreamingText`
+### 2.9 `StreamingText`
 
 功能说明：
 
@@ -458,6 +475,7 @@ useWebSocket(conversationId: number | null, token: string | null)
 16. 在设置页维护自定义角色模板，并在重新规划后参与工作流选角
 17. 在设置页导出角色模板 JSON，或导入模板配置并查看逐条处理结果
 18. 在切换到当前工作流后回填最近运行日志，并继续接收实时增量日志
+19. 在登录页、聊天页、项目页和设置页之间切换时获得统一页面转场体验
 
 ## 7. 规划中的可复用组件
 

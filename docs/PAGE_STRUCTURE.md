@@ -52,6 +52,7 @@
 - 工作流日志区：`LogViewer`
 - 聊天窗口：`ChatWindow`
 - 对话内搜索：内嵌在 `ChatWindow` 顶部
+- 页面转场：由 `AppRouter + PageTransition` 在路由层统一承载
 
 依赖：
 
@@ -103,6 +104,7 @@ frontend/src/
 │   │   └── TokenCounter.tsx
 │   ├── layout/
 │   │   ├── MainArea.tsx
+│   │   ├── PageTransition.tsx
 │   │   ├── Sidebar.tsx
 │   │   └── TopNav.tsx
 │   ├── workflow/
@@ -151,6 +153,7 @@ frontend/src/
 ### `pages/`
 
 - 负责组合组件、调用 store、组织页面级交互
+- 路由层统一通过 `PageTransition` 处理页面进入与离开动效
 
 ### `components/`
 
