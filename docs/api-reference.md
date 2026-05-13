@@ -379,6 +379,107 @@ Authorization: Bearer <access_token>
 - `AGENT_ROLE_TEMPLATE_NOT_FOUND`
 - `DELETE_AGENT_ROLE_TEMPLATE_FAILED`
 
+### GET /api/agent-role-templates/export
+
+用途：导出当前用户的全部自定义 Agent 角色模板，返回可复用的 JSON 配置包。
+
+成功响应：
+
+```json
+{
+  "version": "1.0",
+  "exported_at": "2026-05-13T10:00:00Z",
+  "template_count": 1,
+  "templates": [
+    {
+      "template_id": "user-1-devops",
+      "role_name": "运维工程师",
+      "summary": "负责部署、监控、告警和运行环境检查。",
+      "system_prompt": "你是运维工程师，重点关注部署、环境稳定性、监控和回滚策略。",
+      "trigger_keywords": ["运维", "部署", "监控"],
+      "default_tools": ["file_tool", "api_caller"],
+      "max_retries": 2,
+      "is_enabled": true,
+      "created_at": "2026-05-13T09:00:00Z",
+      "updated_at": "2026-05-13T09:00:00Z"
+    }
+  ]
+}
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `EXPORT_AGENT_ROLE_TEMPLATES_FAILED`
+
+### POST /api/agent-role-templates/import
+
+用途：导入角色模板配置，并按冲突策略创建或覆盖当前用户的同名角色模板。
+
+请求体：
+
+```json
+{
+  "conflict_strategy": "skip",
+  "bundle": {
+    "version": "1.0",
+    "templates": [
+      {
+        "role_name": "运维工程师",
+        "summary": "负责部署、监控、告警和运行环境检查。",
+        "system_prompt": "你是运维工程师，重点关注部署、环境稳定性、监控和回滚策略。",
+        "trigger_keywords": ["运维", "部署", "监控"],
+        "default_tools": ["file_tool", "api_caller"],
+        "max_retries": 2,
+        "is_enabled": true
+      }
+    ]
+  }
+}
+```
+
+说明：
+
+- `conflict_strategy=skip` 时，若检测到同名角色，会保留当前账号已有模板并跳过导入项
+- `conflict_strategy=overwrite` 时，若检测到同名角色，会覆盖当前账号已有模板内容
+- 导入结果会逐条返回 `created / updated / skipped` 状态，便于前端回显
+
+成功响应：
+
+```json
+{
+  "total_count": 2,
+  "created_count": 1,
+  "updated_count": 0,
+  "skipped_count": 1,
+  "results": [
+    {
+      "role_name": "运维工程师",
+      "template_id": "user-1-devops",
+      "status": "skipped",
+      "message": "检测到同名角色，已按跳过策略保留现有模板"
+    },
+    {
+      "role_name": "测试工程师",
+      "template_id": "user-1-qa-reviewer",
+      "status": "created",
+      "message": "已创建新角色模板"
+    }
+  ]
+}
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `VALIDATION_ERROR`
+- `AGENT_ROLE_TEMPLATE_CONFLICT`
+- `IMPORT_AGENT_ROLE_TEMPLATES_FAILED`
+
 ---
 
 ## 5. 工作流接口

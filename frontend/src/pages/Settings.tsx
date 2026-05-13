@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Bot,
+  Download,
+  FileUp,
   PencilLine,
   Plus,
   Power,
@@ -12,15 +14,20 @@ import { useNavigate } from 'react-router-dom'
 import {
   createAgentRoleTemplate,
   deleteAgentRoleTemplate,
+  exportAgentRoleTemplates,
   fetchAgentRoleTemplates,
+  importAgentRoleTemplates,
   updateAgentRoleTemplate,
 } from '../api/agentRoleTemplates'
 import { ApiRequestError } from '../api/client'
 import { fetchCurrentUser } from '../api/auth'
 import { useAuthStore } from '../stores/authStore'
+import { downloadBlobFile } from '../utils/export'
 import type {
   AgentRoleTemplate,
   AgentRoleTemplateDraft,
+  AgentRoleTemplateImportBundle,
+  AgentRoleTemplateImportResponse,
 } from '../types/agentRoleTemplate'
 
 const supportedTools = [
@@ -68,6 +75,7 @@ function formatUpdatedAt(value: string): string {
 // 设置页，负责管理用户级自定义 Agent 角色模板
 export function Settings() {
   const navigate = useNavigate()
+  const importFileInputRef = useRef<HTMLInputElement | null>(null)
   const token = useAuthStore((state) => state.token)
   const setUser = useAuthStore((state) => state.setUser)
   const clearSession = useAuthStore((state) => state.clearSession)
@@ -79,6 +87,12 @@ export function Settings() {
   const [isBootstrapping, setIsBootstrapping] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeletingTemplateId, setIsDeletingTemplateId] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
+  const [importConflictStrategy, setImportConflictStrategy] = useState<'skip' | 'overwrite'>(
+    'skip',
+  )
+  const [importResult, setImportResult] = useState<AgentRoleTemplateImportResponse | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -146,6 +160,11 @@ export function Settings() {
     setKeywordInput('')
     setEditingTemplateId(null)
     setPageError(null)
+  }
+
+  const reloadTemplates = async (authToken: string) => {
+    const roleTemplates = await fetchAgentRoleTemplates(authToken)
+    setTemplates(roleTemplates)
   }
 
   const handleToggleTool = (toolId: string) => {
@@ -242,6 +261,98 @@ export function Settings() {
     }
   }
 
+  const buildExportFileName = () => {
+    const timestamp = new Intl.DateTimeFormat('sv-SE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+      .format(new Date())
+      .replace(/[-: ]/g, '')
+    return `agent-role-templates-${timestamp}.json`
+  }
+
+  const handleExportTemplates = async () => {
+    if (!token) {
+      clearSession()
+      navigate('/login', { replace: true })
+      return
+    }
+
+    setIsExporting(true)
+    setPageError(null)
+
+    try {
+      const bundle = await exportAgentRoleTemplates(token)
+      const fileContent = `${JSON.stringify(bundle, null, 2)}\n`
+      downloadBlobFile(
+        new Blob([fileContent], { type: 'application/json;charset=utf-8' }),
+        buildExportFileName(),
+      )
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        clearSession()
+        navigate('/login', { replace: true })
+        return
+      }
+
+      setPageError(resolveSettingsError(error))
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleOpenImportFilePicker = () => {
+    importFileInputRef.current?.click()
+  }
+
+  const handleImportTemplates = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    if (!token) {
+      clearSession()
+      navigate('/login', { replace: true })
+      return
+    }
+
+    const selectedFile = event.target.files?.[0]
+    event.target.value = ''
+    if (!selectedFile) {
+      return
+    }
+
+    setIsImporting(true)
+    setPageError(null)
+
+    try {
+      const fileText = await selectedFile.text()
+      const parsedBundle = JSON.parse(fileText) as AgentRoleTemplateImportBundle
+      const result = await importAgentRoleTemplates(token, {
+        conflict_strategy: importConflictStrategy,
+        bundle: parsedBundle,
+      })
+      setImportResult(result)
+      await reloadTemplates(token)
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        clearSession()
+        navigate('/login', { replace: true })
+        return
+      }
+
+      if (error instanceof SyntaxError) {
+        setPageError('导入文件不是合法的 JSON，请重新选择导出的角色模板文件')
+      } else {
+        setPageError(resolveSettingsError(error))
+      }
+    } finally {
+      setIsImporting(false)
+    }
+  }
+
   const handleToggleTemplate = async (template: AgentRoleTemplate) => {
     if (!token) {
       clearSession()
@@ -305,6 +416,16 @@ export function Settings() {
             </button>
           </div>
 
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={(event) => {
+              void handleImportTemplates(event)
+            }}
+          />
+
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             <div className="rounded-[22px] border border-line bg-white/80 px-4 py-4">
               <div className="text-xs text-ink-faint">角色模板总数</div>
@@ -320,6 +441,92 @@ export function Settings() {
                 为每个角色配置 2-5 个关键词，便于工作流规划时稳定命中。
               </div>
             </div>
+          </div>
+
+          <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-line bg-white/70 px-5 py-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-ink">角色模板导入 / 导出</div>
+                <div className="mt-1 text-xs leading-6 text-ink-faint">
+                  导出后可在其他账号或环境中导入。导入时支持“跳过同名角色”或“覆盖同名角色”两种策略。
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleExportTemplates()
+                  }}
+                  disabled={isExporting}
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink transition hover:bg-[#faf7f1] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Download className="h-4 w-4" />
+                  {isExporting ? '导出中...' : '导出模板'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenImportFilePicker}
+                  disabled={isImporting}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#1f1c17] px-4 py-3 text-sm text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FileUp className="h-4 w-4" />
+                  {isImporting ? '导入中...' : '导入模板'}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-xs uppercase tracking-[0.18em] text-ink-faint">冲突策略</div>
+              <button
+                type="button"
+                onClick={() => setImportConflictStrategy('skip')}
+                className={`rounded-full px-3 py-2 text-xs transition ${
+                  importConflictStrategy === 'skip'
+                    ? 'bg-[#1f1c17] text-white'
+                    : 'border border-line bg-white text-ink-soft'
+                }`}
+              >
+                跳过同名角色
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportConflictStrategy('overwrite')}
+                className={`rounded-full px-3 py-2 text-xs transition ${
+                  importConflictStrategy === 'overwrite'
+                    ? 'bg-[#1f1c17] text-white'
+                    : 'border border-line bg-white text-ink-soft'
+                }`}
+              >
+                覆盖同名角色
+              </button>
+            </div>
+
+            {importResult ? (
+              <div className="rounded-[22px] border border-line bg-[#faf7f1] px-4 py-4">
+                <div className="flex flex-wrap gap-3 text-xs text-ink-faint">
+                  <span>总计：{importResult.total_count}</span>
+                  <span>新增：{importResult.created_count}</span>
+                  <span>覆盖：{importResult.updated_count}</span>
+                  <span>跳过：{importResult.skipped_count}</span>
+                </div>
+                <div className="mt-3 grid gap-2">
+                  {importResult.results.map((result) => (
+                    <div
+                      key={`${result.role_name}-${result.template_id ?? 'none'}-${result.status}`}
+                      className="rounded-2xl border border-line bg-white/80 px-3 py-3 text-sm text-ink-soft"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-ink">{result.role_name}</span>
+                        <span className="rounded-full bg-[#ece7dc] px-2 py-0.5 text-[11px] text-ink-soft">
+                          {result.status}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs leading-5 text-ink-faint">{result.message}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {pageError ? (

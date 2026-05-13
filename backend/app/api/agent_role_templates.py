@@ -8,6 +8,9 @@ from app.api.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.agent_role_template import (
     AgentRoleTemplateCreateSchema,
+    AgentRoleTemplateExportBundleSchema,
+    AgentRoleTemplateImportRequestSchema,
+    AgentRoleTemplateImportResponseSchema,
     AgentRoleTemplateResponseSchema,
     AgentRoleTemplateUpdateSchema,
 )
@@ -16,6 +19,8 @@ from app.services.agent_role_template_service import (
     AgentRoleTemplateNotFoundError,
     create_agent_role_template,
     delete_agent_role_template,
+    export_agent_role_templates,
+    import_agent_role_templates,
     list_agent_role_templates,
     template_model_to_response,
     update_agent_role_template,
@@ -72,6 +77,62 @@ def create_agent_role_template_endpoint(
             detail={
                 "error": "创建自定义角色模板失败",
                 "code": "CREATE_AGENT_ROLE_TEMPLATE_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+
+
+@router.get("/export", response_model=AgentRoleTemplateExportBundleSchema)
+def export_agent_role_template_endpoint(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AgentRoleTemplateExportBundleSchema:
+    """导出当前用户的全部自定义角色模板"""
+
+    try:
+        return export_agent_role_templates(db, current_user)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "导出自定义角色模板失败",
+                "code": "EXPORT_AGENT_ROLE_TEMPLATES_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+
+
+@router.post("/import", response_model=AgentRoleTemplateImportResponseSchema)
+def import_agent_role_template_endpoint(
+    payload: AgentRoleTemplateImportRequestSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AgentRoleTemplateImportResponseSchema:
+    """导入角色模板配置，并按冲突策略创建或覆盖现有模板"""
+
+    try:
+        return import_agent_role_templates(
+            db,
+            current_user,
+            payload.bundle.templates,
+            payload.conflict_strategy,
+        )
+    except AgentRoleTemplateConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "导入自定义角色模板失败",
+                "code": "AGENT_ROLE_TEMPLATE_CONFLICT",
+                "detail": f"角色 `{exc}` 已存在，请调整导入策略或角色名称",
+            },
+        ) from exc
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "导入自定义角色模板失败",
+                "code": "IMPORT_AGENT_ROLE_TEMPLATES_FAILED",
                 "detail": str(exc),
             },
         ) from exc

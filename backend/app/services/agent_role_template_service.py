@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,6 +12,11 @@ from app.models.agent_role_template import AgentRoleTemplate
 from app.models.user import User
 from app.schemas.agent_role_template import (
     AgentRoleTemplateCreateSchema,
+    AgentRoleTemplateExportBundleSchema,
+    AgentRoleTemplateExportItemSchema,
+    AgentRoleTemplateImportItemSchema,
+    AgentRoleTemplateImportResponseSchema,
+    AgentRoleTemplateImportResultItemSchema,
     AgentRoleTemplateResponseSchema,
     AgentRoleTemplateUpdateSchema,
 )
@@ -293,6 +299,139 @@ def delete_agent_role_template(
     template = get_agent_role_template_by_template_id(db, user, template_id)
     db.delete(template)
     db.commit()
+
+
+def export_agent_role_templates(
+    db: Session,
+    user: User,
+) -> AgentRoleTemplateExportBundleSchema:
+    """导出当前用户的全部自定义角色模板为可迁移 JSON 包"""
+
+    templates = list_agent_role_templates(db, user)
+    export_items = [
+        AgentRoleTemplateExportItemSchema(
+            template_id=item.template_id,
+            role_name=item.role_name,
+            summary=item.summary,
+            system_prompt=item.system_prompt,
+            trigger_keywords=json.loads(item.trigger_keywords_json),
+            default_tools=json.loads(item.default_tools_json),
+            max_retries=item.max_retries,
+            is_enabled=item.is_enabled,
+            created_at=item.created_at,
+            updated_at=item.updated_at,
+        )
+        for item in templates
+    ]
+    return AgentRoleTemplateExportBundleSchema(
+        exported_at=datetime.now(timezone.utc),
+        template_count=len(export_items),
+        templates=export_items,
+    )
+
+
+def build_template_payload_from_import_item(
+    item: AgentRoleTemplateImportItemSchema,
+) -> AgentRoleTemplateCreateSchema:
+    """将导入条目转换为统一的角色模板写入载荷"""
+
+    return AgentRoleTemplateCreateSchema(
+        role_name=item.role_name,
+        summary=item.summary,
+        system_prompt=item.system_prompt,
+        trigger_keywords=item.trigger_keywords,
+        default_tools=item.default_tools,
+        max_retries=item.max_retries,
+        is_enabled=item.is_enabled,
+    )
+
+
+def import_agent_role_templates(
+    db: Session,
+    user: User,
+    items: list[AgentRoleTemplateImportItemSchema],
+    conflict_strategy: str,
+) -> AgentRoleTemplateImportResponseSchema:
+    """按给定策略导入角色模板，并返回逐条结果摘要"""
+
+    existing_templates = list_agent_role_templates(db, user)
+    existing_by_role_name = {
+        normalize_text(item.role_name): item for item in existing_templates
+    }
+    seen_import_role_names: set[str] = set()
+    results: list[AgentRoleTemplateImportResultItemSchema] = []
+    created_count = 0
+    updated_count = 0
+    skipped_count = 0
+
+    for item in items:
+        normalized_role_name = normalize_text(item.role_name)
+        if normalized_role_name in seen_import_role_names:
+            skipped_count += 1
+            results.append(
+                AgentRoleTemplateImportResultItemSchema(
+                    role_name=normalized_role_name,
+                    template_id=item.template_id,
+                    status="skipped",
+                    message="导入文件中存在重复角色名称，已跳过后续重复项",
+                )
+            )
+            continue
+
+        seen_import_role_names.add(normalized_role_name)
+        payload = build_template_payload_from_import_item(item)
+        existing_template = existing_by_role_name.get(normalized_role_name)
+
+        if existing_template is None:
+            created_template = create_agent_role_template(db, user, payload)
+            existing_by_role_name[normalized_role_name] = created_template
+            created_count += 1
+            results.append(
+                AgentRoleTemplateImportResultItemSchema(
+                    role_name=created_template.role_name,
+                    template_id=created_template.template_id,
+                    status="created",
+                    message="已创建新角色模板",
+                )
+            )
+            continue
+
+        if conflict_strategy == "overwrite":
+            updated_template = update_agent_role_template(
+                db,
+                user,
+                existing_template.template_id,
+                AgentRoleTemplateUpdateSchema(**payload.model_dump()),
+            )
+            existing_by_role_name[normalized_role_name] = updated_template
+            updated_count += 1
+            results.append(
+                AgentRoleTemplateImportResultItemSchema(
+                    role_name=updated_template.role_name,
+                    template_id=updated_template.template_id,
+                    status="updated",
+                    message="检测到同名角色，已按覆盖策略更新现有模板",
+                )
+            )
+            continue
+
+        skipped_count += 1
+        results.append(
+            AgentRoleTemplateImportResultItemSchema(
+                role_name=existing_template.role_name,
+                template_id=existing_template.template_id,
+                status="skipped",
+                message="检测到同名角色，已按跳过策略保留现有模板",
+            )
+        )
+
+    return AgentRoleTemplateImportResponseSchema(
+        total_count=len(items),
+        created_count=created_count,
+        updated_count=updated_count,
+        skipped_count=skipped_count,
+        results=results,
+    )
 
 
 def resolve_custom_role_template(

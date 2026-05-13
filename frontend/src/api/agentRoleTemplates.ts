@@ -2,6 +2,9 @@ import { requestJson } from './client'
 import type {
   AgentRoleTemplate,
   AgentRoleTemplateDraft,
+  AgentRoleTemplateExportBundle,
+  AgentRoleTemplateImportBundle,
+  AgentRoleTemplateImportResponse,
 } from '../types/agentRoleTemplate'
 
 // 获取当前用户的全部自定义角色模板
@@ -46,5 +49,29 @@ export async function deleteAgentRoleTemplate(
   await requestJson<void>(`/api/agent-role-templates/${templateId}`, {
     method: 'DELETE',
     token,
+  })
+}
+
+// 导出当前用户的全部自定义角色模板
+export async function exportAgentRoleTemplates(
+  token: string,
+): Promise<AgentRoleTemplateExportBundle> {
+  return requestJson<AgentRoleTemplateExportBundle>('/api/agent-role-templates/export', {
+    token,
+  })
+}
+
+// 导入角色模板配置，并按指定策略处理同名角色
+export async function importAgentRoleTemplates(
+  token: string,
+  payload: {
+    conflict_strategy: 'skip' | 'overwrite'
+    bundle: AgentRoleTemplateImportBundle
+  },
+): Promise<AgentRoleTemplateImportResponse> {
+  return requestJson<AgentRoleTemplateImportResponse>('/api/agent-role-templates/import', {
+    method: 'POST',
+    token,
+    body: payload,
   })
 }

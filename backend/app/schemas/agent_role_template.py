@@ -1,6 +1,7 @@
 """用户自定义 Agent 角色模板的请求与响应模型"""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -31,3 +32,55 @@ class AgentRoleTemplateResponseSchema(AgentRoleTemplateBaseSchema):
     template_id: str
     created_at: datetime
     updated_at: datetime
+
+
+class AgentRoleTemplateExportItemSchema(AgentRoleTemplateResponseSchema):
+    """导出文件中的单个角色模板条目"""
+
+
+class AgentRoleTemplateExportBundleSchema(BaseModel):
+    """角色模板导出包，便于跨账号或跨环境导入复用"""
+
+    version: Literal["1.0"] = "1.0"
+    exported_at: datetime
+    template_count: int = Field(ge=0)
+    templates: list[AgentRoleTemplateExportItemSchema] = Field(default_factory=list)
+
+
+class AgentRoleTemplateImportItemSchema(AgentRoleTemplateBaseSchema):
+    """角色模板导入条目，兼容导出文件中的模板定义"""
+
+    template_id: str | None = None
+
+
+class AgentRoleTemplateImportBundleSchema(BaseModel):
+    """角色模板导入包，描述导入版本和模板列表"""
+
+    version: Literal["1.0"] = "1.0"
+    templates: list[AgentRoleTemplateImportItemSchema] = Field(default_factory=list)
+
+
+class AgentRoleTemplateImportRequestSchema(BaseModel):
+    """角色模板导入请求，描述冲突处理策略与导入内容"""
+
+    conflict_strategy: Literal["skip", "overwrite"] = "skip"
+    bundle: AgentRoleTemplateImportBundleSchema
+
+
+class AgentRoleTemplateImportResultItemSchema(BaseModel):
+    """单个角色模板导入结果条目，供前端展示明细"""
+
+    role_name: str
+    template_id: str | None = None
+    status: Literal["created", "updated", "skipped"]
+    message: str
+
+
+class AgentRoleTemplateImportResponseSchema(BaseModel):
+    """角色模板导入结果汇总"""
+
+    total_count: int = Field(ge=0)
+    created_count: int = Field(ge=0)
+    updated_count: int = Field(ge=0)
+    skipped_count: int = Field(ge=0)
+    results: list[AgentRoleTemplateImportResultItemSchema] = Field(default_factory=list)
