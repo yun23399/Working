@@ -19,6 +19,7 @@ from app.schemas.workflow import (
     WorkflowControlRequestSchema,
     WorkflowPreviewRequestSchema,
     WorkflowPreviewResponseSchema,
+    WorkflowRuntimeLogSchema,
 )
 from app.services.conversation_service import (
     ConversationNotFoundError,
@@ -36,6 +37,7 @@ from app.services.workflow_export_service import (
     InvalidArtifactExportPathError,
     export_workflow_artifacts_archive,
 )
+from app.services.workflow_runtime_log_service import list_workflow_runtime_logs
 from app.services.workflow_service import (
     WorkflowNotFoundError,
     confirm_workflow_preview,
@@ -286,6 +288,61 @@ def export_workflow_artifacts_endpoint(
             detail={
                 "error": "导出工作流产物失败",
                 "code": "EXPORT_WORKFLOW_ARTIFACTS_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+
+
+@router.get(
+    "/{conversation_id}/{workflow_id}/runtime-logs",
+    response_model=list[WorkflowRuntimeLogSchema],
+)
+def get_workflow_runtime_logs_endpoint(
+    conversation_id: int,
+    workflow_id: int,
+    limit: int = 200,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[WorkflowRuntimeLogSchema]:
+    """返回指定工作流最近的运行日志列表，供前端日志面板回填历史"""
+
+    try:
+        conversation = get_conversation_by_owner(db, conversation_id, current_user)
+        workflow = get_workflow_by_id(db, workflow_id, conversation.id)
+        return list_workflow_runtime_logs(workflow, limit=limit)
+    except ConversationNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "对话不存在",
+                "code": "CONVERSATION_NOT_FOUND",
+                "detail": f"对话 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except WorkflowNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "工作流预览不存在",
+                "code": "WORKFLOW_NOT_FOUND",
+                "detail": f"工作流 `{exc}` 不存在或无权访问",
+            },
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "读取工作流运行日志失败",
+                "code": "GET_WORKFLOW_RUNTIME_LOGS_FAILED",
+                "detail": str(exc),
+            },
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "读取工作流运行日志失败",
+                "code": "GET_WORKFLOW_RUNTIME_LOGS_FAILED",
                 "detail": str(exc),
             },
         ) from exc

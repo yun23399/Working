@@ -31,6 +31,7 @@ interface WorkflowState {
     executionLog: WorkflowExecutionLog,
   ) => void
   appendRuntimeLog: (workflowId: number, log: ActivityLog) => void
+  replaceRuntimeLogs: (workflowId: number, logs: ActivityLog[]) => void
   clearRuntimeLogs: (workflowId: number) => void
   setError: (message: string | null) => void
   clearConversationWorkflows: (conversationId: number) => void
@@ -187,6 +188,13 @@ export const useWorkflowStore = create<WorkflowState>((set) => ({
           ...(state.workflowLogsByWorkflowId[workflowId] ?? []),
           log,
         ].slice(-maxWorkflowLogCount),
+      },
+    })),
+  replaceRuntimeLogs: (workflowId, logs) =>
+    set((state) => ({
+      workflowLogsByWorkflowId: {
+        ...state.workflowLogsByWorkflowId,
+        [workflowId]: logs.slice(-maxWorkflowLogCount),
       },
     })),
   clearRuntimeLogs: (workflowId) =>

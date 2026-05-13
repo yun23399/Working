@@ -119,6 +119,16 @@ class WorkflowArtifactSchema(BaseModel):
     updated_at: str
 
 
+class WorkflowRuntimeLogSchema(BaseModel):
+    """工作流运行日志模型，描述实时日志面板消费的结构化记录"""
+
+    id: str
+    level: str
+    message: str
+    agent_id: str
+    timestamp: str
+
+
 class WorkflowRunSchema(BaseModel):
     """工作流运行状态模型，描述当前轮次与断点控制信息"""
 

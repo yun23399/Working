@@ -3,6 +3,7 @@ import type {
   WorkflowControlRequest,
   WorkflowPreview,
   WorkflowPreviewRequest,
+  WorkflowRuntimeLog,
 } from '../types/workflow'
 
 // 读取指定对话下的工作流预览列表
@@ -71,6 +72,21 @@ export async function controlWorkflow(
       method: 'POST',
       token,
       body: payload,
+    },
+  )
+}
+
+// 读取指定工作流最近的运行日志文件内容，供前端回填和过滤
+export async function fetchWorkflowRuntimeLogs(
+  token: string,
+  conversationId: number,
+  workflowId: number,
+  limit = 200,
+): Promise<WorkflowRuntimeLog[]> {
+  return requestJson<WorkflowRuntimeLog[]>(
+    `/api/workflows/${conversationId}/${workflowId}/runtime-logs?limit=${limit}`,
+    {
+      token,
     },
   )
 }

@@ -42,6 +42,8 @@
 - 支持启动最小工作流执行，并实时展示进度
 - 支持在节点完成、失败和终态后自动刷新执行日志与节点摘要消息
 - 支持在独立日志面板中实时展示编排器与节点运行日志
+- 支持进入或切换当前工作流时回填最近运行日志文件
+- 支持在日志面板按等级和关键词过滤日志，并导出当前筛选结果
 - 支持在当前对话内按关键词搜索历史消息，并在匹配结果之间跳转
 - 支持退出登录
 
@@ -64,6 +66,7 @@
 - `generatingConversationId`
 - `confirmingWorkflowId`
 - `executingWorkflowId`
+- `controllingWorkflowId`
 - `workflowErrorMessage`
 
 交互说明：
@@ -80,7 +83,8 @@
 - 执行进度条：显示当前工作流进度百分比
 - 节点状态标签：展示 waiting / running / done / failed
 - 执行刷新：节点完成或工作流结束时自动回拉最新工作流和消息历史
-- 工作流日志面板：单独展示 `orchestrator` 与 `node_*` 的实时运行日志
+- 工作流切换：自动调用 `fetchWorkflowRuntimeLogs` 回填当前工作流的历史运行日志
+- 工作流日志面板：单独展示 `orchestrator` 与 `node_*` 的运行日志，并支持筛选、搜索和导出
 - 发送按钮：提交当前输入内容
 - 对话搜索栏：在当前会话消息中执行前端本地搜索、高亮匹配片段并定位到目标消息
 - WebSocket 断线：自动重连最多 3 次
@@ -292,7 +296,9 @@ interface MessageBubbleProps {
 功能说明：
 
 - 展示当前工作流运行期的结构化日志
-- 区分 `INFO / WARNING / ERROR` 日志等级
+- 区分 `DEBUG / INFO / WARNING / ERROR` 日志等级
+- 支持关键词搜索、时间戳展示与导出当前筛选结果
+- 支持展示接口回填的历史日志与 WebSocket 实时增量日志
 - 默认仅承载编排器与工作流节点日志
 - 执行新一轮工作流前清空旧日志
 
@@ -420,6 +426,8 @@ useWebSocket(conversationId: number | null, token: string | null)
 - `createWorkflowPreview`
 - `confirmWorkflowPreview`
 - `executeWorkflow`
+- `controlWorkflow`
+- `fetchWorkflowRuntimeLogs`
 
 ### `systemSettings.ts`
 
@@ -449,6 +457,7 @@ useWebSocket(conversationId: number | null, token: string | null)
 15. 在当前对话内搜索关键词并跳转到匹配消息
 16. 在设置页维护自定义角色模板，并在重新规划后参与工作流选角
 17. 在设置页导出角色模板 JSON，或导入模板配置并查看逐条处理结果
+18. 在切换到当前工作流后回填最近运行日志，并继续接收实时增量日志
 
 ## 7. 规划中的可复用组件
 

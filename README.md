@@ -60,10 +60,12 @@
 8. 设置页已支持用户自定义 Agent 角色模板管理，并可参与工作流重新规划
 9. 设置页已支持自定义角色模板 JSON 导入/导出，并可按同名角色执行跳过或覆盖导入
 10. 设置页已支持修改工作流并发上限，写回仓库根目录 `.env` 后可实时生效
+11. 工作流执行日志已同步写入 `context/runtime_logs.jsonl`，支持刷新后按工作流回填最近运行记录
+12. 日志面板已支持 `DEBUG / INFO / WARNING / ERROR` 分级过滤、关键词搜索、时间戳展示与文本导出
 
 当前下一步目标：
 
-1. 继续增强日志面板体验
+1. 页面过渡动效优化
 2. 继续增强工具执行上下文、权限边界与验收展示
 3. 在具备有效图像模型 Key 的环境下补充真实 AI 出图回归
 
@@ -151,6 +153,7 @@ docs/       接口、流程、部署、前端规格文档
 - `logs/notifications.log`：本地通知器记录的关键工作流提醒日志
 - `context/workspace_state.json`：当前工作区状态快照
 - `context/handoff_log.json`：节点间交接记录
+- `context/runtime_logs.jsonl`：当前工作流运行期结构化日志文件，供日志面板历史回填、筛选与导出
 - `workflow_runs`：工作流运行快照、控制信号与断点状态表
 - `workflow_runs.checkpoint_json.error_report`：节点失败报告、回滚位置与恢复建议
 

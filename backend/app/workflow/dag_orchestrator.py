@@ -141,13 +141,19 @@ class DagOrchestrator:
     ) -> None:
         """向前端推送工作流日志事件"""
 
+        workspace = WorkflowWorkspace(workflow)
+        log_entry = workspace.append_runtime_log(
+            level=level,
+            message=message,
+            agent_id=agent_id,
+        )
         await connection_manager.broadcast(
             "log",
             workflow.conversation_id,
             {
-                "level": level,
-                "message": message,
-                "agent_id": agent_id,
+                "level": log_entry["level"],
+                "message": log_entry["message"],
+                "agent_id": log_entry["agent_id"],
             },
         )
 
@@ -180,6 +186,7 @@ class DagOrchestrator:
         workspace = WorkflowWorkspace(workflow)
         project_memory = ProjectMemoryManager(workflow)
         workspace_dir = workspace.ensure_workspace()
+        workspace.reset_runtime_logs()
         self.checkpoint_controller.create_run(db, workflow)
 
         workflow.status = "running"

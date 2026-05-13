@@ -15,6 +15,7 @@ import {
   createWorkflowPreview,
   executeWorkflow,
   fetchConversationWorkflows,
+  fetchWorkflowRuntimeLogs,
 } from '../api/workflows'
 import { ChatWindow } from '../components/chat/ChatWindow'
 import { MainArea } from '../components/layout/MainArea'
@@ -41,6 +42,7 @@ import {
 import type { ChatMessage, Conversation, MessageRecord } from '../types/chat'
 import { downloadBlobFile } from '../utils/export'
 
+// 将后端消息记录映射为前端聊天时间线结构
 function toChatMessage(message: MessageRecord): ChatMessage {
   return {
     id: String(message.id),
@@ -51,6 +53,7 @@ function toChatMessage(message: MessageRecord): ChatMessage {
   }
 }
 
+// 生成默认的新对话标题，保持时间可读性
 function buildConversationTitle(): string {
   const formatter = new Intl.DateTimeFormat('zh-CN', {
     hour: '2-digit',
@@ -61,6 +64,7 @@ function buildConversationTitle(): string {
   return `新对话 ${formatter.format(new Date())}`
 }
 
+// 统一解析页面级请求错误文案，避免散落重复分支
 function resolveChatError(error: unknown): string {
   if (error instanceof ApiRequestError) {
     return error.message
@@ -126,6 +130,7 @@ export function Chat() {
   const setWorkflowList = useWorkflowStore((state) => state.setWorkflowList)
   const upsertWorkflow = useWorkflowStore((state) => state.upsertWorkflow)
   const appendWorkflowRuntimeLog = useWorkflowStore((state) => state.appendRuntimeLog)
+  const replaceWorkflowRuntimeLogs = useWorkflowStore((state) => state.replaceRuntimeLogs)
   const clearWorkflowRuntimeLogs = useWorkflowStore((state) => state.clearRuntimeLogs)
   const setWorkflowLoadingConversationId = useWorkflowStore(
     (state) => state.setLoadingConversationId,
@@ -327,6 +332,7 @@ export function Chat() {
         level: event.payload.level,
         message: event.payload.message,
         agentId: event.payload.agent_id,
+        timestamp: event.timestamp,
       })
     },
     [activeWorkflowPreview, appendWorkflowRuntimeLog],
@@ -345,6 +351,54 @@ export function Chat() {
       workflowRefreshTimersRef.current = {}
     }
   }, [])
+
+  useEffect(() => {
+    if (!token || activeConversationId === null || activeWorkflowPreview === null) {
+      return
+    }
+
+    let isCurrent = true
+
+    const loadWorkflowRuntimeLogs = async () => {
+      try {
+        const runtimeLogs = await fetchWorkflowRuntimeLogs(
+          token,
+          activeConversationId,
+          activeWorkflowPreview.workflow_id,
+        )
+        if (!isCurrent) {
+          return
+        }
+
+        replaceWorkflowRuntimeLogs(
+          activeWorkflowPreview.workflow_id,
+          runtimeLogs.map((log) => ({
+            id: log.id,
+            level: log.level,
+            message: log.message,
+            agentId: log.agent_id,
+            timestamp: log.timestamp,
+          })),
+        )
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 401) {
+          handleUnauthorized()
+        }
+      }
+    }
+
+    void loadWorkflowRuntimeLogs()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [
+    activeConversationId,
+    activeWorkflowPreview,
+    handleUnauthorized,
+    replaceWorkflowRuntimeLogs,
+    token,
+  ])
 
   const createConversationForCurrentProject = useCallback(async (authToken: string) => {
     try {

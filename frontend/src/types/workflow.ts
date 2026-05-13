@@ -49,6 +49,15 @@ export interface WorkflowExecutionLog {
   artifacts: string[]
 }
 
+// 工作流运行日志类型
+export interface WorkflowRuntimeLog {
+  id: string
+  level: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR'
+  message: string
+  agent_id: string
+  timestamp: string
+}
+
 // 工作流产物预览类型
 export type WorkflowArtifactPreviewType = 'code' | 'image' | 'document' | 'binary'
 

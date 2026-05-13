@@ -8,6 +8,9 @@
 - 新增工作流并发控制器 `backend/app/core/runtime/workflow_concurrency.py`
 - 工作流执行入口已接入系统级并发槽位校验，超限时返回 `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
 - 新增根目录 `.env` 中 `MAX_CONCURRENT_WORKFLOWS` 的读取、更新与实时重载能力
+- 共享工作区新增 `context/runtime_logs.jsonl`，用于持久化当前工作流运行期结构化日志
+- 新增工作流运行日志读取接口 `/api/workflows/{conversation_id}/{workflow_id}/runtime-logs`
+- DAG 编排器在推送 WebSocket `log` 事件时会同步写入本地日志文件，并在每次重新执行前重置旧日志
 - 新增用户自定义 Agent 角色模板表、服务层与 CRUD 接口
 - 新增自定义 Agent 角色模板导出接口 `/api/agent-role-templates/export`
 - 新增自定义 Agent 角色模板导入接口 `/api/agent-role-templates/import`
@@ -73,6 +76,9 @@
 - `workflowStore` 新增按工作流缓存运行时日志的状态管理
 - `useWebSocket` 新增日志事件回调扩展点，支持页面侧按场景消费 `log` 事件
 - 工作流重新执行前会清空当前运行日志，避免旧日志残留
+- 工作流日志面板新增 `DEBUG / INFO / WARNING / ERROR` 分级过滤、关键词搜索与时间戳展示
+- 工作流日志面板新增导出当前筛选结果为 `workflow-runtime-logs.txt`
+- 聊天页在进入或切换工作流时会自动回填日志文件中的最近运行记录
 - 工作流卡片新增暂停、恢复、改向与中断操作入口
 
 ## 2026-05-12

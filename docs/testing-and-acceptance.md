@@ -37,6 +37,7 @@
 29. 用户自定义 Agent 角色模板链路可用
 30. Agent 配置导入/导出链路可用
 31. 并发工作流上限配置链路可用
+32. 工作流运行日志文件回填与分级过滤链路可用
 
 ## 建议命令
 
@@ -155,6 +156,8 @@ python -m playwright install chromium
 - 聊天窗口日志区仅保留 `system` 与 `manager` 相关日志
 - 再次执行同一工作流前，旧的运行时日志会被清空
 - 工作流执行完成后，日志面板条数与运行期事件一致
+- 重新进入当前工作流后，前端会通过 `/api/workflows/{conversation_id}/{workflow_id}/runtime-logs` 回填最近运行日志
+- 日志面板支持 `DEBUG / INFO / WARNING / ERROR` 分级过滤、关键词搜索与导出当前筛选结果
 
 ### 用例 10：阶段二共享工作区链路
 
@@ -382,6 +385,19 @@ python -m playwright install chromium
 - 超限错误码为 `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
 - 当前并发控制为单进程内存级实现，适用于本地单实例联调
 
+### 用例 28：阶段四日志面板文件回填与分级过滤链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- 2026-05-13 运行级实测通过：执行工作流后，`GET /api/workflows/{conversation_id}/{workflow_id}/runtime-logs` 返回最近结构化日志记录
+- 2026-05-13 文件级实测通过：共享工作区 `context/runtime_logs.jsonl` 已真实落盘
+- 聊天页进入当前工作流后，可回填历史日志并继续接收 WebSocket 增量日志
+- `LogViewer` 已支持按等级筛选、关键词搜索、时间戳展示和导出 `workflow-runtime-logs.txt`
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -427,4 +443,6 @@ httpx.AsyncClient(trust_env=False)
 19. 角色模板导入/导出与导入结果回显是否仍可用
 20. `GET /api/system-settings/runtime` 与 `PUT /api/system-settings/runtime` 是否仍可用
 21. 工作流执行超限时是否仍返回 `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
-22. 文档是否仍与实现一致
+22. `/api/workflows/{conversation_id}/{workflow_id}/runtime-logs` 是否仍可返回最近运行日志
+23. `LogViewer` 的分级过滤、关键词搜索与导出是否仍可用
+24. 文档是否仍与实现一致

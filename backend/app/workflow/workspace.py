@@ -65,8 +65,93 @@ class WorkflowWorkspace:
         if not handoff_path.exists():
             handoff_path.write_text("[]", encoding="utf-8")
 
+        runtime_log_path = context_dir / "runtime_logs.jsonl"
+        if not runtime_log_path.exists():
+            runtime_log_path.write_text("", encoding="utf-8")
+
         logger.debug("工作流 {} 共享工作区已就绪: {}", self.workflow.id, workspace_dir)
         return workspace_dir
+
+    def resolve_runtime_log_path(self) -> Path:
+        """返回当前工作流运行日志文件路径"""
+
+        workspace_dir = self.ensure_workspace()
+        return workspace_dir / "context" / "runtime_logs.jsonl"
+
+    def reset_runtime_logs(self) -> Path:
+        """清空当前工作流运行日志文件，供新一轮执行重置日志面板"""
+
+        runtime_log_path = self.resolve_runtime_log_path()
+        runtime_log_path.write_text("", encoding="utf-8")
+        return runtime_log_path
+
+    def append_runtime_log(
+        self,
+        *,
+        level: str,
+        message: str,
+        agent_id: str,
+        timestamp: str | None = None,
+    ) -> dict[str, str]:
+        """向当前工作流运行日志文件追加一条 JSONL 记录"""
+
+        resolved_timestamp = timestamp or self.build_timestamp()
+        log_entry = {
+            "id": f"{resolved_timestamp}-{agent_id}",
+            "level": level,
+            "message": message,
+            "agent_id": agent_id,
+            "timestamp": resolved_timestamp,
+        }
+        runtime_log_path = self.resolve_runtime_log_path()
+        with runtime_log_path.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+        return log_entry
+
+    def load_runtime_logs(self, limit: int | None = None) -> list[dict[str, str]]:
+        """读取当前工作流运行日志文件中的结构化记录"""
+
+        runtime_log_path = self.resolve_runtime_log_path()
+        logs: list[dict[str, str]] = []
+
+        for raw_line in runtime_log_path.read_text(encoding="utf-8").splitlines():
+            if not raw_line.strip():
+                continue
+
+            try:
+                payload = json.loads(raw_line)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "工作流 {} 的运行日志存在损坏行，已跳过",
+                    self.workflow.id,
+                )
+                continue
+
+            if not isinstance(payload, dict):
+                continue
+
+            log_id = str(payload.get("id", "")).strip()
+            level = str(payload.get("level", "")).strip()
+            message = str(payload.get("message", "")).strip()
+            agent_id = str(payload.get("agent_id", "")).strip()
+            timestamp = str(payload.get("timestamp", "")).strip()
+            if not all([log_id, level, message, agent_id, timestamp]):
+                continue
+
+            logs.append(
+                {
+                    "id": log_id,
+                    "level": level,
+                    "message": message,
+                    "agent_id": agent_id,
+                    "timestamp": timestamp,
+                }
+            )
+
+        if limit is not None and limit > 0:
+            return logs[-limit:]
+
+        return logs
 
     def build_default_state(self) -> dict[str, Any]:
         """构造共享工作区的默认状态快照"""

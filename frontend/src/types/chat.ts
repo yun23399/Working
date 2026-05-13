@@ -50,6 +50,7 @@ export interface ActivityLog {
   level: 'DEBUG' | 'INFO' | 'WARNING' | 'ERROR'
   message: string
   agentId: string
+  timestamp?: string
 }
 
 // WebSocket 连接状态类型

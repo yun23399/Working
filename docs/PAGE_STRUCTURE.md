@@ -48,6 +48,7 @@
 - 左侧栏：`Sidebar`
 - 主内容容器：`MainArea`
 - 工作流预览区：`WorkflowConfirm`
+- 产物预览区：`ArtifactPreviewPanel`
 - 工作流日志区：`LogViewer`
 - 聊天窗口：`ChatWindow`
 - 对话内搜索：内嵌在 `ChatWindow` 顶部
@@ -56,10 +57,12 @@
 
 - `conversations.ts`
 - `workflows.ts`
+- `workflowArtifacts.ts`
 - `authStore.ts`
 - `chatStore.ts`
 - `projectStore.ts`
 - `workflowStore.ts`
+- `useWorkflowArtifacts.ts`
 - `useWebSocket.ts`
 
 ### 项目页 `frontend/src/pages/Projects.tsx`

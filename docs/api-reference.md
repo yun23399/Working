@@ -738,6 +738,53 @@ path=design_brief.md
 - `INVALID_WORKFLOW_EXPORT_PATH`
 - `EXPORT_WORKFLOW_ARTIFACTS_FAILED`
 
+### GET /api/workflows/{conversation_id}/{workflow_id}/runtime-logs
+
+用途：读取指定工作流最近的运行日志列表，供前端日志面板回填历史、分级过滤和导出。
+
+查询参数：
+
+```text
+limit=200
+```
+
+成功响应：
+
+```json
+[
+  {
+    "id": "2026-05-13T12:00:00+00:00-orchestrator",
+    "level": "INFO",
+    "message": "工作流已进入执行阶段，开始按节点顺序推进",
+    "agent_id": "orchestrator",
+    "timestamp": "2026-05-13T12:00:00+00:00"
+  },
+  {
+    "id": "2026-05-13T12:00:01+00:00-node_1",
+    "level": "WARNING",
+    "message": "需求分析师 即将开始第 2 次尝试",
+    "agent_id": "node_1",
+    "timestamp": "2026-05-13T12:00:01+00:00"
+  }
+]
+```
+
+说明：
+
+- 日志来源于当前工作流共享工作区 `context/runtime_logs.jsonl`
+- 后端在推送 WebSocket `log` 事件时，会同步将结构化日志写入该文件
+- 当前接口默认最多返回最近 `200` 条记录，便于页面刷新或重新进入工作流后快速回填
+- 每次重新执行当前工作流前，编排器都会先清空旧的日志文件，保证历史回填与本轮执行一致
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `CONVERSATION_NOT_FOUND`
+- `WORKFLOW_NOT_FOUND`
+- `GET_WORKFLOW_RUNTIME_LOGS_FAILED`
+
 ### POST /api/workflows/{conversation_id}/preview
 
 用途：为指定对话生成工作流预览，或在 `force_replan=true` 时重新规划。
@@ -1009,6 +1056,7 @@ path=design_brief.md
 - 当前版本只支持最小串行执行，不支持并发节点
 - 执行过程通过 WebSocket `workflow_update` 和 `log` 事件回推到前端
 - 前端在节点完成、失败和终态时会自动回拉工作流与消息历史，补齐 `execution_logs` 与节点摘要消息
+- 工作流开始新一轮执行前，会先清空共享工作区 `context/runtime_logs.jsonl` 中的旧日志
 - 当前节点执行时不再依赖实时查找内置模板，而是直接消费预览阶段写入节点的模板快照
 - 节点模板快照包含 `template_id`、`template_source`、`template_summary`、`template_system_prompt` 与 `trigger_keywords`
 - 每个节点完成后会向当前对话追加一条角色摘要消息
@@ -1020,6 +1068,7 @@ path=design_brief.md
 - 当前 `designer` 模板命中 `image_tool` 时，会在 `artifacts/` 下真实生成设计图片与图像结果文件
 - 同一对话下的多条工作流会共用 `workspace/projects/conversation_<id>/project_memory.json`
 - 节点间交接会写入 `handoff_logs` 与 `context/handoff_log.json`
+- 编排器与节点运行日志会同时进入 WebSocket 与 `context/runtime_logs.jsonl`，供页面刷新后回填
 - 节点完成后会把摘要沉淀到 `project_memory.key_points`
 - 若命中 `pause_after_nodes` 指定节点，工作流会进入 `waiting_confirm`，同时保存 `workflow_runs.checkpoint_json`
 - 节点失败时会按 `max_retries` 自动重试；超过次数后回滚到最近安全快照，并以 `waiting_confirm + error_report` 形式等待人工恢复
