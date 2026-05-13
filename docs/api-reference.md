@@ -259,6 +259,91 @@ Authorization: Bearer <access_token>
 
 ## 4. 系统运行配置接口
 
+### GET /api/system-settings/plugins
+
+用途：读取当前仓库已安装的本地插件列表，供设置页展示插件能力与启停状态。
+
+成功响应：
+
+```json
+[
+  {
+    "plugin_id": "research-helper",
+    "name": "研究助理插件",
+    "description": "为包含调研、竞品和资料整理需求的工作流提供研究助理角色模板。",
+    "version": "1.0.0",
+    "tools": ["file_tool", "api_caller"],
+    "agent_templates": [
+      {
+        "template_id": "plugin:research-helper:research-analyst",
+        "role_name": "研究助理",
+        "summary": "负责资料检索、竞品整理、证据归纳与对比结论输出。",
+        "trigger_keywords": ["调研", "研究", "竞品", "资料", "research"],
+        "default_tools": ["file_tool", "api_caller"]
+      }
+    ],
+    "source_path": "D:\\AI\\0000001-1\\plugins\\examples\\research_helper",
+    "is_enabled": true
+  }
+]
+```
+
+说明：
+
+- 当前插件目录来源于仓库根目录 `plugins/` 与 `plugins/examples/`
+- `tools` 当前为声明式展示字段，供设置页说明插件宣称能力
+- `agent_templates` 是当前阶段的真实生效能力，启用后会并入工作流规划链路
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `LIST_PLUGINS_FAILED`
+
+### PUT /api/system-settings/plugins/{plugin_id}
+
+用途：更新指定本地插件的启停状态，并将结果写回仓库根目录 `.env` 的 `ENABLED_PLUGINS`。
+
+请求体：
+
+```json
+{
+  "is_enabled": false
+}
+```
+
+成功响应：
+
+```json
+{
+  "plugin_id": "research-helper",
+  "name": "研究助理插件",
+  "description": "为包含调研、竞品和资料整理需求的工作流提供研究助理角色模板。",
+  "version": "1.0.0",
+  "tools": ["file_tool", "api_caller"],
+  "agent_templates": [
+    {
+      "template_id": "plugin:research-helper:research-analyst",
+      "role_name": "研究助理",
+      "summary": "负责资料检索、竞品整理、证据归纳与对比结论输出。",
+      "trigger_keywords": ["调研", "研究", "竞品", "资料", "research"],
+      "default_tools": ["file_tool", "api_caller"]
+    }
+  ],
+  "source_path": "D:\\AI\\0000001-1\\plugins\\examples\\research_helper",
+  "is_enabled": false
+}
+```
+
+错误码：
+
+- `MISSING_TOKEN`
+- `INVALID_TOKEN`
+- `USER_NOT_FOUND`
+- `PLUGIN_NOT_FOUND`
+- `UPDATE_PLUGIN_STATE_FAILED`
+
 ### GET /api/system-settings/runtime
 
 用途：读取当前系统级工作流并发配置和运行槽位快照。
@@ -901,6 +986,8 @@ limit=200
 - 当前阶段会返回 `workflow_run`，用于展示运行轮次与断点状态
 - 当工作流因节点失败进入人工恢复阶段时，会额外返回 `error_report`
 - 工作流重新规划时会自动读取当前用户已启用的自定义角色模板，并按触发关键词匹配后追加到节点序列
+- 工作流重新规划时还会自动读取当前已启用插件提供的角色模板，并按触发关键词匹配后追加到节点序列
+- 插件模板节点的 `template_source` 会返回 `plugin`
 - 预览阶段默认所有节点为 `waiting`
 
 错误码：

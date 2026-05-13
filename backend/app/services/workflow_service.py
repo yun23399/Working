@@ -28,6 +28,7 @@ from app.schemas.workflow import (
     WorkflowWorkspaceStateSchema,
 )
 from app.services.agent_role_template_service import list_enabled_custom_role_templates
+from app.services.plugin_service import list_workflow_plugin_templates
 from app.workflow.checkpoint import WorkflowCheckpointController
 from app.workflow.workspace import WorkflowWorkspace
 
@@ -78,7 +79,12 @@ def create_workflow_preview(
 
     requirement = RequirementExtractor().extract(conversation.title, history_messages)
     custom_templates = list_enabled_custom_role_templates(db, user)
-    dag = WorkflowPlanner().plan(requirement, custom_templates=custom_templates)
+    plugin_templates = list_workflow_plugin_templates()
+    dag = WorkflowPlanner().plan(
+        requirement,
+        custom_templates=custom_templates,
+        plugin_templates=plugin_templates,
+    )
 
     workflow = Workflow(
         conversation_id=conversation.id,

@@ -39,6 +39,7 @@
 31. 并发工作流上限配置链路可用
 32. 工作流运行日志文件回填与分级过滤链路可用
 33. 页面过渡动效优化链路可用
+34. 本地插件自动加载、启停与工作流选角接入链路可用
 
 ## 建议命令
 
@@ -410,6 +411,19 @@ python -m playwright install chromium
 - 默认环境下页面切换时会呈现轻微上移、淡入与顶部冷蓝光晕过渡
 - 若浏览器或系统开启“减少动态效果”，页面动效会自动降级为更轻的透明度过渡
 
+### 用例 30：阶段五插件机制链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- `GET /api/system-settings/plugins` 可返回当前本地插件列表与插件模板摘要
+- `PUT /api/system-settings/plugins/{plugin_id}` 可更新指定插件启停状态，并写回根目录 `.env`
+- 重新规划工作流后，命中插件关键词的节点会以 `template_source=plugin` 进入节点列表
+- 示例插件 `plugins/examples/research_helper` 可作为本地插件开发参考
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰
@@ -458,4 +472,6 @@ httpx.AsyncClient(trust_env=False)
 22. `/api/workflows/{conversation_id}/{workflow_id}/runtime-logs` 是否仍可返回最近运行日志
 23. `LogViewer` 的分级过滤、关键词搜索与导出是否仍可用
 24. 登录页、聊天页、项目页与设置页切换时的页面转场是否仍可用
-25. 文档是否仍与实现一致
+25. 本地插件列表、启停控制与设置页展示是否仍可用
+26. 重新规划工作流后，插件模板是否仍可按关键词命中并返回 `template_source=plugin`
+27. 文档是否仍与实现一致

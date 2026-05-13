@@ -69,7 +69,15 @@ function resolveTemplateLabel(templateId: string): string {
 
 // 根据模板来源渲染更明确的来源标签
 function resolveTemplateSourceLabel(templateSource: string): string {
-  return templateSource === 'custom' ? '自定义角色' : '内置模板'
+  if (templateSource === 'custom') {
+    return '自定义角色'
+  }
+
+  if (templateSource === 'plugin') {
+    return '插件模板'
+  }
+
+  return '内置模板'
 }
 
 // 根据工作流状态返回对应的界面提示
@@ -497,6 +505,8 @@ export function WorkflowConfirm({
                           className={`rounded-full px-2 py-1 text-[11px] ${
                             node.template_source === 'custom'
                               ? 'bg-[#fff3d9] text-[#9a6700]'
+                              : node.template_source === 'plugin'
+                                ? 'bg-[#eef3ff] text-[#3856a6]'
                               : 'bg-[#f3efe6] text-ink-soft'
                           }`}
                         >

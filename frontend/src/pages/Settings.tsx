@@ -4,6 +4,7 @@ import {
   Bot,
   Download,
   FileUp,
+  Package,
   PencilLine,
   Plus,
   Power,
@@ -11,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { fetchInstalledPlugins, updateInstalledPlugin } from '../api/plugins'
 import { fetchSystemRuntimeSettings, updateSystemRuntimeSettings } from '../api/systemSettings'
 import {
   createAgentRoleTemplate,
@@ -30,6 +32,7 @@ import type {
   AgentRoleTemplateImportBundle,
   AgentRoleTemplateImportResponse,
 } from '../types/agentRoleTemplate'
+import type { InstalledPlugin } from '../types/plugin'
 import type { SystemRuntimeSettings } from '../types/systemSettings'
 
 const supportedTools = [
@@ -106,8 +109,10 @@ export function Settings() {
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [runtimeSettings, setRuntimeSettings] = useState<SystemRuntimeSettings | null>(null)
+  const [plugins, setPlugins] = useState<InstalledPlugin[]>([])
   const [concurrencyLimitInput, setConcurrencyLimitInput] = useState('3')
   const [isSavingConcurrencyLimit, setIsSavingConcurrencyLimit] = useState(false)
+  const [togglingPluginId, setTogglingPluginId] = useState<string | null>(null)
   const [importConflictStrategy, setImportConflictStrategy] = useState<'skip' | 'overwrite'>(
     'skip',
   )
@@ -126,10 +131,11 @@ export function Settings() {
       setPageError(null)
 
       try {
-        const [user, roleTemplates, runtimeSettingsSnapshot] = await Promise.all([
+        const [user, roleTemplates, runtimeSettingsSnapshot, installedPlugins] = await Promise.all([
           fetchCurrentUser(token),
           fetchAgentRoleTemplates(token),
           fetchSystemRuntimeSettings(token),
+          fetchInstalledPlugins(token),
         ])
         if (!isCurrent) {
           return
@@ -138,6 +144,7 @@ export function Settings() {
         setUser(user)
         setTemplates(roleTemplates)
         setRuntimeSettings(runtimeSettingsSnapshot)
+        setPlugins(installedPlugins)
         setConcurrencyLimitInput(
           String(runtimeSettingsSnapshot.max_concurrent_workflows),
         )
@@ -171,6 +178,10 @@ export function Settings() {
     return templates.filter((template) => template.is_enabled).length
   }, [templates])
 
+  const enabledPluginCount = useMemo(() => {
+    return plugins.filter((plugin) => plugin.is_enabled).length
+  }, [plugins])
+
   const handleDraftChange = <K extends keyof AgentRoleTemplateDraft>(
     field: K,
     value: AgentRoleTemplateDraft[K],
@@ -191,6 +202,38 @@ export function Settings() {
   const reloadTemplates = async (authToken: string) => {
     const roleTemplates = await fetchAgentRoleTemplates(authToken)
     setTemplates(roleTemplates)
+  }
+
+  const handleTogglePlugin = async (plugin: InstalledPlugin) => {
+    if (!token) {
+      clearSession()
+      navigate('/login', { replace: true })
+      return
+    }
+
+    setTogglingPluginId(plugin.plugin_id)
+    setPageError(null)
+
+    try {
+      const updatedPlugin = await updateInstalledPlugin(token, plugin.plugin_id, {
+        is_enabled: !plugin.is_enabled,
+      })
+      setPlugins((current) =>
+        current.map((item) =>
+          item.plugin_id === updatedPlugin.plugin_id ? updatedPlugin : item,
+        ),
+      )
+    } catch (error) {
+      if (error instanceof ApiRequestError && error.status === 401) {
+        clearSession()
+        navigate('/login', { replace: true })
+        return
+      }
+
+      setPageError(resolveSettingsError(error))
+    } finally {
+      setTogglingPluginId(null)
+    }
   }
 
   const handleSaveConcurrencyLimit = async () => {
@@ -503,14 +546,124 @@ export function Settings() {
               <div className="mt-2 text-2xl font-semibold text-ink">{enabledTemplateCount}</div>
             </div>
             <div className="rounded-[22px] border border-line bg-white/80 px-4 py-4">
+              <div className="text-xs text-ink-faint">已启用插件</div>
+              <div className="mt-2 text-2xl font-semibold text-ink">{enabledPluginCount}</div>
+            </div>
+            <div className="rounded-[22px] border border-line bg-white/80 px-4 py-4 md:col-span-3">
               <div className="text-xs text-ink-faint">推荐做法</div>
               <div className="mt-2 text-sm leading-6 text-ink-soft">
-                为每个角色配置 2-5 个关键词，便于工作流规划时稳定命中。
+                插件适合沉淀可复用的长期角色能力，自定义角色适合维护当前账号的个性化选角规则。
               </div>
             </div>
           </div>
 
           <div className="mt-6 flex flex-col gap-4 rounded-[24px] border border-line bg-white/70 px-5 py-5">
+            <div className="rounded-[22px] border border-line bg-[#faf7f1] px-4 py-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-ink">本地插件</div>
+                  <div className="mt-1 text-xs leading-6 text-ink-faint">
+                    插件目录位于仓库根目录 `plugins/`。启用后，插件声明的角色模板会在重新规划工作流时按关键词参与选角。
+                  </div>
+                </div>
+                <div className="rounded-full bg-white px-3 py-1 text-xs text-ink-faint">
+                  已安装：{plugins.length} · 已启用：{enabledPluginCount}
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                {plugins.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-line bg-white/80 px-4 py-4 text-sm text-ink-soft">
+                    当前还没有检测到本地插件。可在 `plugins/` 或 `plugins/examples/` 下新增插件目录。
+                  </div>
+                ) : (
+                  plugins.map((plugin) => (
+                    <div
+                      key={plugin.plugin_id}
+                      className="rounded-2xl border border-line bg-white/80 px-4 py-4"
+                    >
+                      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#ece7dc] text-ink">
+                              <Package className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="text-base font-semibold text-ink">{plugin.name}</div>
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-xs ${
+                                    plugin.is_enabled
+                                      ? 'bg-[#e8f5ee] text-[#1d6b49]'
+                                      : 'bg-[#efece4] text-ink-soft'
+                                  }`}
+                                >
+                                  {plugin.is_enabled ? '已启用' : '已停用'}
+                                </span>
+                                <span className="rounded-full bg-[#eff2fb] px-2.5 py-1 text-xs text-[#4b5d99]">
+                                  {plugin.plugin_id}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-xs text-ink-faint">
+                                版本 {plugin.version} · {plugin.source_path}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 text-sm leading-6 text-ink-soft">{plugin.description}</div>
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink-faint">
+                            <span className="rounded-full bg-[#f3efe6] px-2.5 py-1">
+                              工具：{plugin.tools.join(' / ') || '未声明'}
+                            </span>
+                            <span className="rounded-full bg-[#f3efe6] px-2.5 py-1">
+                              模板：{plugin.agent_templates.length}
+                            </span>
+                          </div>
+                          <div className="mt-3 grid gap-2">
+                            {plugin.agent_templates.map((template) => (
+                              <div
+                                key={template.template_id}
+                                className="rounded-2xl border border-line bg-[#faf7f1] px-3 py-3"
+                              >
+                                <div className="text-sm font-medium text-ink">{template.role_name}</div>
+                                <div className="mt-1 text-xs leading-5 text-ink-faint">
+                                  {template.summary}
+                                </div>
+                                <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-ink-faint">
+                                  <span className="rounded-full bg-white px-2 py-1">
+                                    关键词：{template.trigger_keywords.join(' / ') || '无'}
+                                  </span>
+                                  <span className="rounded-full bg-white px-2 py-1">
+                                    工具：{template.default_tools.join(' / ') || '无'}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleTogglePlugin(plugin)
+                          }}
+                          disabled={togglingPluginId === plugin.plugin_id}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm text-ink transition hover:bg-[#faf7f1] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Power className="h-4 w-4" />
+                          {togglingPluginId === plugin.plugin_id
+                            ? '保存中...'
+                            : plugin.is_enabled
+                              ? '停用插件'
+                              : '启用插件'}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="text-sm font-semibold text-ink">角色模板导入 / 导出</div>

@@ -77,6 +77,7 @@
 - 历史对话项：加载该对话的历史消息
 - 工作流预览卡片：展示结构化需求摘要、节点列表和预览状态
 - 节点模板标签：展示 PM / 前端 / 后端 / 测试 / 设计师模板归属
+- 节点来源标签：展示内置模板 / 自定义角色 / 插件模板
 - 生成预览按钮：基于当前对话历史请求后端生成预览
 - 重新规划按钮：基于当前对话历史重新创建预览版本
 - 确认工作流按钮：将当前预览标记为已确认
@@ -110,8 +111,11 @@
 当前状态：
 
 - 自定义角色模板管理页已可用
+- 本地插件列表与启停管理已可用
 - 系统级工作流并发上限设置已可用
 - 支持创建、编辑、启停和删除用户级角色模板
+- 支持查看插件描述、模板数、工具声明和来源路径
+- 支持启用或停用本地插件，并让下一次工作流重新规划使用最新插件状态
 - 支持配置触发关键词、系统提示词、工具集和重试次数
 - 支持导出当前账号的角色模板 JSON 配置包
 - 支持导入角色模板 JSON，并按“跳过同名角色 / 覆盖同名角色”执行
@@ -126,6 +130,8 @@
 
 状态定义：
 
+- `plugins`
+- `togglingPluginId`
 - `runtimeSettings`
 - `concurrencyLimitInput`
 - `isSavingConcurrencyLimit`
@@ -453,6 +459,13 @@ useWebSocket(conversationId: number | null, token: string | null)
 - `fetchSystemRuntimeSettings`
 - `updateSystemRuntimeSettings`
 
+### `plugins.ts`
+
+负责：
+
+- `fetchInstalledPlugins`
+- `updateInstalledPlugin`
+
 ## 6. 当前交互闭环
 
 当前已经可以跑通：
@@ -476,6 +489,7 @@ useWebSocket(conversationId: number | null, token: string | null)
 17. 在设置页导出角色模板 JSON，或导入模板配置并查看逐条处理结果
 18. 在切换到当前工作流后回填最近运行日志，并继续接收实时增量日志
 19. 在登录页、聊天页、项目页和设置页之间切换时获得统一页面转场体验
+20. 在设置页查看本地插件列表，并控制插件是否参与后续工作流重新规划
 
 ## 7. 规划中的可复用组件
 

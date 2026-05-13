@@ -4,6 +4,13 @@
 
 ### 后端能力
 
+- 新增本地插件加载器 `backend/app/core/plugins/plugin_loader.py`
+- 新增插件管理接口 `/api/system-settings/plugins`
+- 新增插件服务层 `backend/app/services/plugin_service.py` 与插件响应模型
+- 新增根目录 `plugins/` 与 `plugins/examples/research_helper` 示例插件
+- 根目录 `.env` 新增 `ENABLED_PLUGINS`，设置页保存插件状态后会实时重载
+- 工作流重新规划时可按关键词引入启用中的插件角色模板
+- 插件模板进入工作流后会以 `template_source=plugin` 回传给前端
 - 新增系统运行配置接口 `/api/system-settings/runtime`
 - 新增工作流并发控制器 `backend/app/core/runtime/workflow_concurrency.py`
 - 工作流执行入口已接入系统级并发槽位校验，超限时返回 `WORKFLOW_CONCURRENCY_LIMIT_REACHED`
@@ -55,6 +62,9 @@
 
 ### 前端能力
 
+- 设置页新增本地插件面板，可查看插件描述、模板摘要、工具声明与来源路径
+- 设置页支持启用或停用本地插件，并通过插件管理接口实时保存
+- 工作流预览卡片新增“插件模板”来源标签，便于区分内置模板、自定义角色与插件模板
 - 设置页新增“工作流并发上限”面板，可查看当前上限、执行中数量、剩余槽位与是否已满
 - 设置页支持修改工作流并发上限，并调用系统运行配置接口实时保存
 - 设置页升级为自定义 Agent 角色模板管理入口，支持创建、编辑、启停与删除

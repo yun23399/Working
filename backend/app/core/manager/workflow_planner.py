@@ -47,11 +47,16 @@ class WorkflowPlanner:
         self,
         requirement: RequirementSummary,
         custom_templates: list[CustomRoleTemplate] | None = None,
+        plugin_templates: list[RoleTemplate] | None = None,
     ) -> WorkflowDag:
         """根据结构化需求返回阶段二工作流预览 DAG"""
 
         runtime_label = self.adapter.get_runtime_label()
-        selected_templates = self.select_templates(requirement, custom_templates or [])
+        selected_templates = self.select_templates(
+            requirement,
+            custom_templates or [],
+            plugin_templates or [],
+        )
         nodes: list[WorkflowNode] = []
 
         for index, template in enumerate(selected_templates, start=1):
@@ -79,6 +84,7 @@ class WorkflowPlanner:
         self,
         requirement: RequirementSummary,
         custom_templates: list[CustomRoleTemplate],
+        plugin_templates: list[RoleTemplate],
     ) -> list[RoleTemplate]:
         """根据需求内容和输出类型选择本轮工作流的角色模板序列"""
 
@@ -102,6 +108,10 @@ class WorkflowPlanner:
         for custom_template in custom_templates:
             if self.matches_custom_template(context_text, custom_template):
                 selected_templates.append(custom_template.to_role_template())
+
+        for plugin_template in plugin_templates:
+            if self.matches_role_template(context_text, plugin_template):
+                selected_templates.append(plugin_template)
 
         if len(selected_templates) == 1:
             selected_templates.append(get_role_template("backend"))
@@ -130,10 +140,22 @@ class WorkflowPlanner:
     ) -> bool:
         """根据触发关键词判断当前需求是否需要加入自定义角色模板"""
 
+        return self.matches_keywords(context_text, custom_template.trigger_keywords)
+
+    def matches_role_template(
+        self,
+        context_text: str,
+        template: RoleTemplate,
+    ) -> bool:
+        """根据触发关键词判断当前需求是否需要加入插件角色模板"""
+
+        return self.matches_keywords(context_text, template.trigger_keywords or [])
+
+    def matches_keywords(self, context_text: str, keywords: list[str]) -> bool:
+        """根据关键词列表判断当前上下文是否命中指定模板"""
+
         normalized_text = context_text.lower()
-        return any(
-            keyword in normalized_text for keyword in custom_template.trigger_keywords
-        )
+        return any(keyword.lower() in normalized_text for keyword in keywords)
 
     def needs_frontend(self, context_text: str, output_types: list[str]) -> bool:
         """判断当前需求是否需要前端模板参与"""

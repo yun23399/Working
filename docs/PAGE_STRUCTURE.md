@@ -80,7 +80,9 @@
 当前状态：
 
 - 自定义角色模板管理页已接入
+- 本地插件列表与启停控制已接入
 - 当前支持角色模板创建、编辑、启停、删除、关键词配置与 JSON 导入/导出
+- 当前支持查看插件描述、插件模板摘要、工具声明与插件目录来源
 - 当前支持系统级工作流并发上限查看与保存
 - 后续用于主题、语言与更多系统配置
 
@@ -93,6 +95,7 @@ frontend/src/
 │   ├── auth.ts
 │   ├── client.ts
 │   ├── conversations.ts
+│   ├── plugins.ts
 │   ├── systemSettings.ts
 │   ├── workflowArtifacts.ts
 │   └── workflows.ts
@@ -137,6 +140,7 @@ frontend/src/
 │   ├── agentRoleTemplate.ts
 │   ├── auth.ts
 │   ├── chat.ts
+│   ├── plugin.ts
 │   ├── project.ts
 │   ├── systemSettings.ts
 │   └── workflow.ts

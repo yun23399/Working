@@ -8,6 +8,7 @@ from app.core.runtime.workflow_concurrency import workflow_concurrency_controlle
 from app.schemas.system_settings import SystemRuntimeSettingsResponseSchema
 
 ENV_MAX_CONCURRENT_WORKFLOWS = "MAX_CONCURRENT_WORKFLOWS"
+ENV_ENABLED_PLUGINS = "ENABLED_PLUGINS"
 
 
 def read_env_lines(env_path: Path) -> list[str]:

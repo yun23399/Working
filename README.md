@@ -64,11 +64,19 @@
 12. 日志面板已支持 `DEBUG / INFO / WARNING / ERROR` 分级过滤、关键词搜索、时间戳展示与文本导出
 13. 登录页、聊天页、项目页与设置页已接入统一页面转场组件，路由切换时支持轻量淡入上移过渡
 
+当前阶段五已实现：
+
+1. 新增仓库根目录 `plugins/` 本地插件自动扫描机制
+2. 新增 `PluginBase` 插件接口，支持声明 `name`、`description`、`tools` 与 `agent_templates`
+3. 设置页已支持查看已安装插件列表，并可启用或停用本地插件
+4. 已启用插件的角色模板会在重新规划工作流时按触发关键词并入节点链路
+5. 仓库已附带 `plugins/examples/research_helper` 示例插件，可作为后续插件扩展参考
+
 当前下一步目标：
 
-1. 进入阶段五，继续增强工具执行上下文、权限边界与验收展示
-2. 在具备有效图像模型 Key 的环境下补充真实 AI 出图回归
-3. 继续规划扩展能力阶段的协作体验与更复杂交付链路
+1. 继续推进阶段五 Step 37 PostgreSQL 支持
+2. 继续推进阶段五 Step 38 OAuth 登录
+3. 在具备有效图像模型 Key 的环境下补充真实 AI 出图回归
 
 ## 技术栈
 
@@ -133,6 +141,7 @@ frontend/   前端应用
 backend/    FastAPI + SQLAlchemy + Alembic 后端
 docs/       接口、流程、部署、前端规格文档
 .github/    CI 工作流
+plugins/    本地插件目录与示例插件
 ```
 
 完整职责边界见 [多智能体平台_完整架构与开发文档.md](./多智能体平台_完整架构与开发文档.md)。
@@ -152,6 +161,7 @@ docs/       接口、流程、部署、前端规格文档
 - `artifacts/design_image_result.json`：图像工具记录的生成来源、提示词和输出参数
 - `exports/workflow_<id>_artifacts.zip`：导出工具生成的工作流产物压缩包
 - `logs/notifications.log`：本地通知器记录的关键工作流提醒日志
+- `plugins/examples/research_helper/`：阶段五示例插件，提供“研究助理”角色模板
 - `context/workspace_state.json`：当前工作区状态快照
 - `context/handoff_log.json`：节点间交接记录
 - `context/runtime_logs.jsonl`：当前工作流运行期结构化日志文件，供日志面板历史回填、筛选与导出
@@ -189,3 +199,4 @@ docs/       接口、流程、部署、前端规格文档
 - `LLM_PROVIDER=auto` 时，后端会优先使用已配置的云模型 Key，否则回退到本地 Ollama
 - `LLM_MODEL` 留空时，会按当前提供商选择默认模型
 - `OPENAI_API_KEY` 已配置时，`image_tool` 会优先调用 OpenAI 图像接口；未配置时会回退到本地占位图渲染链路
+- `ENABLED_PLUGINS` 用逗号分隔启用的插件编号，设置页修改后会自动写回根目录 `.env`

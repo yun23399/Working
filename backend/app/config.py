@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     notifications_enabled: bool = True
     notification_sound_enabled: bool = True
     max_concurrent_workflows: int = 3
+    enabled_plugins: str = ""
     code_exec_timeout: int = 30
     sandbox_enabled: bool = False
 
@@ -87,3 +88,4 @@ def reload_settings() -> None:
         setattr(settings, field_name, getattr(refreshed_settings, field_name))
 
     os.environ["MAX_CONCURRENT_WORKFLOWS"] = str(settings.max_concurrent_workflows)
+    os.environ["ENABLED_PLUGINS"] = settings.enabled_plugins

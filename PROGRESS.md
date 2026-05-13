@@ -1,16 +1,16 @@
 # PROGRESS.md — 开发进度记录
 
 > 最后更新：2026-05-13
-> 更新者：Codex（会话 #35）
+> 更新者：Codex（会话 #36）
 > 规则：每完成一个任务更新一次；每次会话结束前必须更新一次
 
 ---
 
 ## 当前阶段
 
-**✅ 阶段四：完善体验（已完成系统通知、本地多项目管理、对话内搜索、自定义角色管理、配置导入导出、并发上限配置、日志面板完善与页面过渡动效优化）**
+**🚧 阶段五：扩展能力（进行中，已完成 Step 36 插件机制）**
 
-**⏭ 下一步：阶段五：扩展能力（待开始，优先继续增强工具执行上下文、权限边界与验收展示）**
+**⏭ 下一步：阶段五 Step 37 — PostgreSQL 支持**
 
 ---
 
@@ -22,7 +22,15 @@
 | 阶段二：工作流引擎 | ✅ 已完成 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新、模板、共享工作区、断点、错误恢复与项目级记忆链路 |
 | 阶段三：工具集接入 | ✅ 已完成 | 已完成代码、文件、API、浏览器、图像工具、前端产物预览、导出与 Token 展示链路 |
 | 阶段四：完善体验 | ✅ 已完成 | 已完成系统通知、本地多项目管理、对话内搜索、自定义角色管理、配置导入导出、并发上限配置、日志面板完善与页面过渡动效优化 |
-| 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
+| 阶段五：扩展能力 | 🚧 进行中 | 已完成 Step 36 插件机制，继续推进 PostgreSQL 支持与 OAuth 登录 |
+
+---
+
+## 阶段五：任务清单（进行中）
+
+- [x] Step 36 — 插件机制
+- [ ] Step 37 — PostgreSQL 支持
+- [ ] Step 38 — OAuth 登录
 
 ---
 
@@ -173,6 +181,7 @@
 - ✅ 阶段四并发工作流上限配置链路 — 2026-05-13 | 设置页已支持系统级并发上限查看与保存，后端已在执行入口拦截超限工作流并实时生效
 - ✅ 阶段四日志面板完善链路 — 2026-05-13 | 工作流日志已支持写入 `context/runtime_logs.jsonl`、接口回填、分级过滤、关键词搜索与导出
 - ✅ 阶段四页面过渡动效优化链路 — 2026-05-13 | 路由层已接入统一 `PageTransition` 组件，登录/聊天/项目/设置页切换时支持轻量淡入上移过渡
+- ✅ 阶段五插件机制链路 — 2026-05-13 | 已支持本地插件自动加载、设置页启停控制与插件角色模板接入工作流重新规划
 
 ---
 
@@ -213,6 +222,12 @@
 │   ├── tsconfig.app.json
 │   └── vite.config.ts
 ├── multi_agent_platform_ui_demo.html
+├── plugins/
+│   ├── README.md
+│   └── examples/
+│       └── research_helper/
+│           ├── plugin.json
+│           └── plugin.py
 ├── PROGRESS.md
 ├── README.md
 ├── 前端.txt
@@ -797,6 +812,35 @@
   1. `frontend`: `npm run lint`、`npm run build` 通过
   2. 路由级验证通过：`AppRouter` 已成功接入 `AnimatePresence` 与 `PageTransition`
   3. 代码级验证通过：统一页面转场已覆盖 `/login`、`/chat`、`/projects` 与 `/settings`
+
+### 2026-05-13 会话 #36
+- 执行内容：完成阶段五 Step 36 插件机制
+- 新增后端文件：
+  1. `backend/app/core/plugins/plugin_loader.py`
+  2. `backend/app/core/plugins/__init__.py`
+  3. `backend/app/schemas/plugin.py`
+  4. `backend/app/services/plugin_service.py`
+  5. `backend/app/api/plugins.py`
+- 新增前端文件：
+  1. `frontend/src/api/plugins.ts`
+  2. `frontend/src/types/plugin.ts`
+- 新增仓库文件：
+  1. `plugins/README.md`
+  2. `plugins/examples/research_helper/plugin.json`
+  3. `plugins/examples/research_helper/plugin.py`
+- 关键改造：
+  1. 新增仓库根目录 `plugins/` 本地插件自动扫描机制，并以 `PluginBase` 作为最小插件接口
+  2. 新增 `GET /api/system-settings/plugins` 与 `PUT /api/system-settings/plugins/{plugin_id}`，支持设置页查看与启停插件
+  3. 根目录 `.env` 新增 `ENABLED_PLUGINS`，插件状态保存后会立即重载当前进程配置
+  4. 工作流重新规划时会额外读取当前启用插件提供的角色模板，并按关键词命中后加入 DAG 节点
+  5. 设置页新增本地插件面板，支持查看插件描述、模板摘要、工具声明、来源路径与启停状态
+  6. 工作流节点来源新增 `plugin` 标识，前端卡片可区分内置模板、自定义角色与插件模板
+  7. README、API、产品流程、测试文档、前端规格、页面结构与 CHANGELOG 已同步到当前实现
+- 验证结果：
+  1. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  2. `frontend`: `npm run lint`、`npm run build` 通过
+  3. 接口级烟测通过：插件管理接口可返回 `research-helper` 示例插件信息并支持启停保存
+  4. 规划级验证通过：插件模板命中关键词后可在工作流节点中返回 `template_source=plugin`
 
 ---
 

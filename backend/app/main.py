@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.api.agent_role_templates import router as agent_role_templates_router
 from app.api.auth import router as auth_router
 from app.api.conversations import router as conversations_router
+from app.api.plugins import router as plugins_router
 from app.api.system_settings import router as system_settings_router
 from app.api.workflows import router as workflows_router
 from app.api.ws import router as ws_router
@@ -29,6 +30,7 @@ app.include_router(auth_router)
 app.include_router(agent_role_templates_router)
 app.include_router(conversations_router)
 app.include_router(system_settings_router)
+app.include_router(plugins_router)
 app.include_router(workflows_router)
 app.include_router(ws_router)
 
