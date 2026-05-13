@@ -4,6 +4,10 @@
 
 ### 后端能力
 
+- 新增本地系统通知器 `backend/app/notifications/notifier.py`
+- 工作流开始执行、等待确认、完成和中断时会触发本地通知记录
+- 新增 `NOTIFICATIONS_ENABLED` 与 `NOTIFICATION_SOUND_ENABLED` 环境变量
+- 日志目录解析统一改为仓库根目录，通知日志固定写入 `logs/notifications.log`
 - 新增共享工作区管理器 `workspace.py`
 - 工作流新增 `workspace_path`、`workspace_state_json`、`handoff_log_json` 持久化字段
 - 工作流执行时会在仓库根目录 `workspace/projects/...` 初始化专属工作区

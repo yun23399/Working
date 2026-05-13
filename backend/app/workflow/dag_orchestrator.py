@@ -13,6 +13,7 @@ from app.core.manager.workflow_planner import WorkflowDag, WorkflowNode
 from app.core.memory.project_memory import ProjectMemoryManager
 from app.models.conversation import Conversation
 from app.models.workflow import Workflow
+from app.notifications import SystemNotifier
 from app.services.conversation_service import save_agent_message
 from app.workflow.agent_spawner import AgentSpawner
 from app.workflow.checkpoint import WorkflowCheckpointController
@@ -33,6 +34,7 @@ class DagOrchestrator:
         self.agent_spawner = agent_spawner or AgentSpawner()
         self.checkpoint_controller = WorkflowCheckpointController()
         self.error_handler = WorkflowErrorHandler(self.checkpoint_controller)
+        self.notifier = SystemNotifier()
 
     def deserialize_dag(self, workflow: Workflow) -> WorkflowDag:
         """将持久化的 DAG JSON 反序列化为运行时对象"""
@@ -149,6 +151,21 @@ class DagOrchestrator:
             },
         )
 
+    def notify_workflow_status(
+        self,
+        workflow: Workflow,
+        status: str,
+        summary: str,
+    ) -> None:
+        """向本地通知器发送关键工作流状态提醒"""
+
+        self.notifier.notify_workflow_status(
+            conversation_id=workflow.conversation_id,
+            workflow_id=workflow.id,
+            status=status,
+            summary=summary,
+        )
+
     async def execute(
         self,
         db: Session,
@@ -183,6 +200,11 @@ class DagOrchestrator:
             "INFO",
             "工作流已进入执行阶段，开始按节点顺序推进",
             "orchestrator",
+        )
+        self.notify_workflow_status(
+            workflow,
+            "running",
+            "工作流已开始执行，将按当前 DAG 顺序逐节点推进。",
         )
 
         total_nodes = max(len(ordered_nodes), 1)
@@ -220,6 +242,11 @@ class DagOrchestrator:
                     node.id,
                     "aborted",
                     workflow.progress / 100,
+                )
+                self.notify_workflow_status(
+                    workflow,
+                    "aborted",
+                    "工作流已收到中断指令，执行已停止。",
                 )
                 return workflow
 
@@ -323,6 +350,11 @@ class DagOrchestrator:
                         "WARNING",
                         decision.error_payload["recovery_suggestion"],
                         "orchestrator",
+                    )
+                    self.notify_workflow_status(
+                        workflow,
+                        "waiting_confirm",
+                        decision.error_payload["recovery_suggestion"],
                     )
                     while True:
                         waiting_run = self.checkpoint_controller.require_latest_run(
@@ -437,6 +469,11 @@ class DagOrchestrator:
                                 current_node.id,
                                 "aborted",
                                 workflow.progress / 100,
+                            )
+                            self.notify_workflow_status(
+                                workflow,
+                                "aborted",
+                                "工作流在错误恢复等待期间被中断。",
                             )
                             return workflow
 
@@ -553,6 +590,14 @@ class DagOrchestrator:
                     "waiting_confirm",
                     workflow.progress / 100,
                 )
+                self.notify_workflow_status(
+                    workflow,
+                    "waiting_confirm",
+                    (
+                        f"节点 {current_node.id} 已完成，"
+                        "工作流进入断点等待，请决定继续、改向或中断。"
+                    ),
+                )
 
                 while True:
                     waiting_run = self.checkpoint_controller.require_latest_run(
@@ -652,6 +697,11 @@ class DagOrchestrator:
                             "aborted",
                             workflow.progress / 100,
                         )
+                        self.notify_workflow_status(
+                            workflow,
+                            "aborted",
+                            "工作流在断点等待期间被中断。",
+                        )
                         return workflow
 
                     await asyncio.sleep(0.5)
@@ -680,6 +730,11 @@ class DagOrchestrator:
             "workflow",
             "done",
             1.0,
+        )
+        self.notify_workflow_status(
+            workflow,
+            "completed",
+            "工作流全部节点执行完成，产物和日志已写入共享工作区。",
         )
         final_run = self.checkpoint_controller.require_latest_run(db, workflow.id)
         self.checkpoint_controller.finish_run(db, final_run, "completed")

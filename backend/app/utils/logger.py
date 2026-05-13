@@ -1,7 +1,6 @@
 """日志模块，负责配置 loguru 输出到控制台与文件"""
 
 import sys
-from pathlib import Path
 
 from loguru import logger
 
@@ -11,7 +10,7 @@ from app.config import settings
 def configure_logger() -> None:
     """初始化日志输出规则，并创建本地日志目录"""
 
-    log_dir = Path(settings.log_dir)
+    log_dir = settings.log_dir_path
     log_dir.mkdir(parents=True, exist_ok=True)
 
     logger.remove()

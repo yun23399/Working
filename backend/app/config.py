@@ -38,6 +38,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:4173,"
         "http://localhost:4173"
     )
+    notifications_enabled: bool = True
+    notification_sound_enabled: bool = True
     max_concurrent_workflows: int = 3
     code_exec_timeout: int = 30
     sandbox_enabled: bool = False
@@ -52,6 +54,15 @@ class Settings(BaseSettings):
         if workspace_path.is_absolute():
             return workspace_path
         return (ROOT_DIR / workspace_path).resolve()
+
+    @property
+    def log_dir_path(self) -> Path:
+        """返回基于仓库根目录解析后的日志目录路径"""
+
+        log_path = Path(self.log_dir)
+        if log_path.is_absolute():
+            return log_path
+        return (ROOT_DIR / log_path).resolve()
 
     @property
     def cors_allow_origins_list(self) -> list[str]:

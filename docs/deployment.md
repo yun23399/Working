@@ -10,6 +10,7 @@
 2. 数据库可通过 Alembic 初始化
 3. 前后端可成功联调
 4. 最小聊天闭环可运行
+5. 关键工作流状态可通过本地通知链路回显
 
 ## 2. 本地开发环境要求
 
@@ -44,6 +45,8 @@ APP_HOST=127.0.0.1
 APP_PORT=8000
 FRONTEND_APP_URL=http://127.0.0.1:5173
 CORS_ALLOW_ORIGINS=http://127.0.0.1:5173,http://localhost:5173,http://127.0.0.1:5174,http://localhost:5174,http://127.0.0.1:4173,http://localhost:4173
+NOTIFICATIONS_ENABLED=true
+NOTIFICATION_SOUND_ENABLED=true
 ```
 
 前端关键变量：
@@ -58,6 +61,8 @@ VITE_API_BASE_URL=http://127.0.0.1:8000
 - 若前端不跑在 `5173`，需要同步更新 `FRONTEND_APP_URL` 与 `VITE_API_BASE_URL`
 - `OPENAI_API_KEY` 已配置时，`image_tool` 会调用 OpenAI 图像接口；未配置时会回退到本地占位图渲染链路
 - `IMAGE_MODEL`、`IMAGE_SIZE`、`IMAGE_QUALITY`、`IMAGE_TIMEOUT_SECONDS` 用于控制图像工具的默认生成参数
+- `NOTIFICATIONS_ENABLED` 用于控制是否发送本地桌面通知；关闭后仍会写 `logs/notifications.log`
+- `NOTIFICATION_SOUND_ENABLED` 用于控制是否播放系统提示音
 
 ## 4. 本地启动建议
 
@@ -102,6 +107,7 @@ npm run preview
 - PostgreSQL
 - 统一监控与告警
 - 静态资源与后端统一发布方案
+- 跨平台通知适配与前端站内通知联动
 
 ## 6. 进入测试/生产前必须补齐
 

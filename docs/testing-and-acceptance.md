@@ -298,6 +298,19 @@ python -m playwright install chromium
 - 聊天头部的 Token 统计已抽离为独立 `TokenCounter` 组件
 - 当前统计口径保持不变，仍按 `messages[].tokenCount` 汇总显示本次会话累计 Token 数
 
+### 用例 22：阶段四本地通知链路
+
+验证结果：
+
+- `python -m ruff check .` 通过
+- `python -m black --check .` 通过
+- `npm run lint` 通过
+- `npm run build` 通过
+- 2026-05-13 代码级实测通过：`SystemNotifier.notify()` 调用后，会在仓库根目录生成 `logs/notifications.log`
+- 2026-05-13 代码级实测通过：通知日志路径固定为仓库根目录 `logs/`，不会漂移到 `backend/logs/`
+- 当前桌面通知采用 Windows PowerShell 气泡提醒，若环境不支持会自动回退到日志记录，不影响工作流执行
+- 若 PowerShell 控制台未切换到 UTF-8，直接 `Get-Content` 查看中文通知文本可能显示为问号；文件实际写入仍为 UTF-8
+
 ## 本地验证注意事项
 
 ### 1. 代理环境干扰

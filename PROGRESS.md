@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-**✅ 阶段三：工具集接入（代码执行、文件、API、浏览器、图像、产物预览、产物导出与 Token 展示已完成，下一步进入阶段四体验完善）**
+**⏳ 阶段四：完善体验（已完成系统通知最小链路，下一步继续完善多项目管理、搜索与日志体验）**
 
 ---
 
@@ -19,7 +19,7 @@
 | 阶段一：基础骨架 MVP | ✅ 已完成 | 登录、对话、WebSocket、真实 LLM 普通对话、最小项目/历史视图已打通 |
 | 阶段二：工作流引擎 | ✅ 已完成 | 已完成最小工作流预览、重新规划、确认、执行、结果刷新、模板、共享工作区、断点、错误恢复与项目级记忆链路 |
 | 阶段三：工具集接入 | ✅ 已完成 | 已完成代码、文件、API、浏览器、图像工具、前端产物预览、导出与 Token 展示链路 |
-| 阶段四：完善体验 | ⏳ 待开始 | 阶段三已收尾，可进入体验完善 |
+| 阶段四：完善体验 | ⏳ 进行中 | 已完成系统通知最小链路，后续继续完善多项目管理、搜索与日志体验 |
 | 阶段五：扩展能力 | ⏳ 待开始 | 持续迭代 |
 
 ---
@@ -117,9 +117,9 @@
 
 ---
 
-## 阶段四：任务清单（待开始）
+## 阶段四：任务清单（进行中）
 
-- [ ] 系统通知（notifier.py）
+- [x] 系统通知（notifier.py）
 - [ ] 多项目管理完善
 - [ ] 对话内搜索
 - [ ] 用户自定义 Agent 角色管理
@@ -163,6 +163,7 @@
 - ✅ 阶段三前端产物预览链路 — 2026-05-13 | 聊天页已支持按工作流读取真实产物列表，并预览代码、文档和图片产物
 - ✅ 阶段三产物导出链路 — 2026-05-13 | 后端已支持导出当前工作流真实产物 zip，聊天页可一键下载全部产物
 - ✅ 阶段三 Token 用量展示链路 — 2026-05-13 | 聊天头部已通过独立 `TokenCounter` 组件展示本次会话累计 Token 数
+- ✅ 阶段四系统通知链路 — 2026-05-13 | 后端已支持关键工作流状态的本地通知日志、桌面提醒与声音回退机制
 
 ---
 
@@ -652,6 +653,22 @@
   1. `frontend`: `npm run lint`、`npm run build` 通过
   2. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
   3. 聊天头部已通过独立组件显示 `messages[].tokenCount` 汇总结果
+
+### 2026-05-13 会话 #28
+- 执行内容：完成阶段四系统通知最小链路
+- 新增后端文件：
+  1. `backend/app/notifications/notifier.py`
+- 关键改造：
+  1. `backend/app/notifications/notifier.py` 新增本地通知器，支持通知日志、Windows 气泡提醒和声音回退
+  2. `dag_orchestrator.py` 在工作流开始执行、等待确认、完成和中断时接入关键状态通知
+  3. `backend/app/config.py` 与 `.env.example` 新增 `NOTIFICATIONS_ENABLED`、`NOTIFICATION_SOUND_ENABLED`
+  4. `backend/app/utils/logger.py` 与通知器统一改为使用仓库根目录 `logs/`，避免运行目录漂移
+  5. README、部署文档、产品流程、测试文档与 CHANGELOG 已同步到当前通知实现
+- 验证结果：
+  1. `frontend`: `npm run lint`、`npm run build` 通过
+  2. `backend`: `python -m ruff check .`、`python -m black --check .` 通过
+  3. 代码级实测通过：`SystemNotifier.notify()` 调用后，会在仓库根目录生成 `logs/notifications.log`
+  4. 代码级实测通过：日志目录解析固定在仓库根目录，不再漂移到 `backend/logs/`
 
 ---
 
